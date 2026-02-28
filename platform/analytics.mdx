@@ -1,0 +1,84 @@
+---
+title: "Analytics"
+description: "Track AI safety metrics and usage patterns"
+icon: "chart-line"
+---
+
+## Dashboard Overview
+
+The Analytics dashboard gives you a high-level view of how your LLM applications are performing from both a safety and an operational perspective. Four key metrics are displayed at the top of the page:
+
+| Metric | Description |
+|--------|-------------|
+| **Total Requests** | The number of LLM interactions captured during the selected time range |
+| **Issue Rate** | The percentage of traces where at least one safety issue was detected |
+| **Average Latency** | The mean response time across all traced requests |
+| **Total Cost** | The estimated spend across all models and providers |
+
+Open the Analytics dashboard at [app.avaliar.ai/analytics](https://app.avaliar.ai/analytics).
+
+## Time Ranges
+
+All metrics and charts update based on the selected time range. Choose from:
+
+- **24h** -- Last 24 hours
+- **7d** -- Last 7 days
+- **30d** -- Last 30 days
+- **90d** -- Last 90 days
+
+<Info>
+  Switching the time range refreshes every chart and metric on the page. Use shorter ranges for debugging recent incidents and longer ranges for trend analysis and reporting.
+</Info>
+
+## Charts
+
+The Analytics dashboard includes six charts that cover request volume, safety, cost, and performance.
+
+<AccordionGroup>
+  <Accordion title="Request Volume" icon="chart-area">
+    An area chart showing the number of LLM requests over time. Use this to identify traffic spikes, quiet periods, and overall growth trends.
+  </Accordion>
+
+  <Accordion title="Clean vs Issues Breakdown" icon="chart-bar">
+    A bar chart comparing the number of clean traces to traces with detected issues. This gives you a quick visual indicator of your overall safety posture during the selected period.
+  </Accordion>
+
+  <Accordion title="Cost by Model" icon="coins">
+    A breakdown of estimated cost by model. See which models are driving the most spend and how cost distributes across your stack.
+
+    <Note>
+      Cost is stored internally in cents for precision and displayed in dollars on the dashboard. This avoids floating-point rounding issues in aggregations.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Latency Percentiles" icon="gauge-high">
+    Latency distribution shown at three percentiles:
+
+    | Percentile | Meaning |
+    |------------|---------|
+    | **p50** | Median latency -- half of all requests are faster than this |
+    | **p95** | 95th percentile -- only 5% of requests are slower |
+    | **p99** | 99th percentile -- tail latency experienced by the slowest 1% |
+
+    Monitor p95 and p99 to catch latency regressions before they affect the majority of users.
+  </Accordion>
+
+  <Accordion title="Issue Distribution by Type" icon="chart-pie">
+    A breakdown of detected issues by type (prompt injection, jailbreak, toxicity, PII, bias, hallucination). Use this to understand which safety risks are most prevalent in your application.
+  </Accordion>
+
+  <Accordion title="Model Comparison" icon="scale-balanced">
+    Compare performance across models on key dimensions: request volume, average latency, cost per request, and issue rate. This helps you evaluate model choices and identify underperforming configurations.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Alerts" icon="bell" href="/platform/alerts">
+    Set up automated notifications when safety or performance metrics cross thresholds.
+  </Card>
+  <Card title="Reports" icon="file-chart-column" href="/platform/reports">
+    Generate detailed reports for compliance and stakeholder review.
+  </Card>
+</CardGroup>

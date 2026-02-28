@@ -1,0 +1,157 @@
+---
+title: "Error Handling"
+description: "Handle errors and configure retry behavior"
+icon: "triangle-exclamation"
+---
+
+## Overview
+
+The Avaliar SDK provides a structured error hierarchy so you can catch and handle specific failure modes. Transient errors are retried automatically with exponential backoff, while permanent errors are raised immediately.
+
+## Error Hierarchy
+
+All SDK errors inherit from `AvaliarError`. Catch this base class to handle any Avaliar-related failure, or catch specific subclasses for fine-grained control.
+
+```
+AvaliarError
+├── AvaliarAPIError          # Server errors (HTTP 500, 503)
+├── AvaliarRequestTimeout    # Request timed out
+├── AvaliarUserError         # Invalid input or configuration
+├── AvaliarRateLimitError    # Rate limit exceeded (HTTP 429)
+├── AvaliarAuthError         # Authentication failed (HTTP 401)
+├── AvaliarNotFoundError     # Resource not found (HTTP 404)
+├── AvaliarConflictError     # Resource conflict (HTTP 409)
+└── AvaliarConnectionError   # Network connectivity issues
+```
+
+### Error Reference
+
+| Error Class | HTTP Status | Description | Retried? |
+|-------------|-------------|-------------|----------|
+| `AvaliarAPIError` | 500, 503 | Server-side error | Yes |
+| `AvaliarRequestTimeout` | -- | Request exceeded timeout | No |
+| `AvaliarUserError` | 400, 422 | Invalid input or configuration | No |
+| `AvaliarRateLimitError` | 429 | Too many requests | Yes |
+| `AvaliarAuthError` | 401 | Invalid or expired API key | No |
+| `AvaliarNotFoundError` | 404 | Resource does not exist | No |
+| `AvaliarConflictError` | 409 | Resource already exists or conflict | No |
+| `AvaliarConnectionError` | -- | Could not reach the API | Yes |
+
+## Retry Strategy
+
+The SDK automatically retries transient errors using **exponential backoff with jitter**. You do not need to implement retry logic yourself.
+
+<Steps>
+  <Step title="Retryable Errors">
+    The following error types are retried automatically:
+
+    - `AvaliarConnectionError` -- network failures and DNS resolution issues
+    - `AvaliarAPIError` -- server errors (HTTP 500, 503)
+    - `AvaliarRateLimitError` -- rate limit responses (HTTP 429)
+  </Step>
+  <Step title="Backoff Formula">
+    Each retry waits longer than the previous one:
+
+    ```
+    delay = 2^attempt + random_jitter(0, 0.5)
+    ```
+
+    | Attempt | Base Delay | With Jitter |
+    |---------|------------|-------------|
+    | 1 | 2s | 2.0s -- 2.5s |
+    | 2 | 4s | 4.0s -- 4.5s |
+    | 3 | 8s | 8.0s -- 8.5s |
+  </Step>
+  <Step title="Max Retries">
+    The SDK retries up to **3 times** by default. After all retries are exhausted, the original error is raised.
+  </Step>
+</Steps>
+
+## Catching Errors
+
+### Catch a Specific Error
+
+```python
+from avaliar.errors import AvaliarAuthError, AvaliarRateLimitError
+
+try:
+    result = await generate(messages)
+except AvaliarAuthError:
+    print("Invalid API key. Check your AVALIAR_API_KEY environment variable.")
+except AvaliarRateLimitError:
+    print("Rate limited. The SDK retried automatically but the limit persists.")
+```
+
+### Catch All Avaliar Errors
+
+```python
+from avaliar.errors import AvaliarError
+
+try:
+    result = await generate(messages)
+except AvaliarError as e:
+    print(f"Avaliar SDK error: {e}")
+```
+
+### Handle Errors by Category
+
+```python
+from avaliar.errors import (
+    AvaliarError,
+    AvaliarAuthError,
+    AvaliarUserError,
+    AvaliarRateLimitError,
+    AvaliarAPIError,
+    AvaliarConnectionError,
+    AvaliarNotFoundError,
+    AvaliarRequestTimeout,
+)
+
+try:
+    result = await generate(messages)
+
+except AvaliarAuthError:
+    # Permanent: check your API key
+    logger.error("Authentication failed. Verify AVALIAR_API_KEY is correct.")
+
+except AvaliarUserError as e:
+    # Permanent: fix the request
+    logger.error(f"Invalid request: {e}")
+
+except AvaliarNotFoundError:
+    # Permanent: the resource does not exist
+    logger.error("Requested resource was not found.")
+
+except AvaliarRequestTimeout:
+    # Consider increasing the timeout
+    logger.warning("Request timed out.")
+
+except (AvaliarAPIError, AvaliarConnectionError, AvaliarRateLimitError) as e:
+    # Transient: already retried automatically
+    logger.warning(f"Transient error after retries: {e}")
+
+except AvaliarError as e:
+    # Catch-all for any other SDK error
+    logger.error(f"Unexpected Avaliar error: {e}")
+```
+
+## Configuration
+
+### Timeout Settings
+
+Configure request timeouts through the SDK client:
+
+```python
+import os
+
+# Set the request timeout in seconds (default: 30)
+os.environ["AVALIAR_REQUEST_TIMEOUT"] = "60"
+```
+
+<Warning>
+  Non-retryable errors such as `AvaliarAuthError` and `AvaliarUserError` are raised immediately. Do not retry these -- they indicate a problem that requires a code or configuration change.
+</Warning>
+
+<Tip>
+  In production, catch `AvaliarError` broadly and log the details. Use specific exception handlers only where you need to take different recovery actions for different failure modes.
+</Tip>

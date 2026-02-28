@@ -1,0 +1,130 @@
+---
+title: "Trace Explorer"
+description: "Monitor and inspect your LLM traces in real time"
+icon: "route"
+---
+
+## Overview
+
+The Trace Explorer is the central view for monitoring your LLM applications. Every interaction captured by the [Python SDK](/sdk/installation) or [Proxy](/proxy/overview) integration appears here as a structured trace with full request-response data, performance metrics, and detection results.
+
+Open the Trace Explorer at [app.avaliar.ai/traces](https://app.avaliar.ai/traces).
+
+## Trace Types
+
+Avaliar captures traces from two integration paths. Each path stores slightly different metadata depending on the source.
+
+<Tabs>
+  <Tab title="SDK Traces">
+    Traces created by the `@traceable` decorator in the Python SDK. These include:
+
+    | Field | Description |
+    |-------|-------------|
+    | **Trace ID** | Unique identifier for the trace |
+    | **Span type** | `llm`, `tool`, `agent`, or `generic` |
+    | **Model** | The model used (e.g., `gpt-4o`, `claude-sonnet-4-20250514`) |
+    | **Provider** | The LLM provider (e.g., `openai`, `anthropic`) |
+    | **Input** | The prompt or messages sent to the model |
+    | **Output** | The model's response |
+    | **Latency** | End-to-end execution time |
+    | **Tokens** | Prompt tokens, completion tokens, and total |
+    | **Cost** | Estimated cost based on model pricing |
+    | **Detection mode** | `local`, `cloud`, or `none` |
+    | **Environment** | `development`, `staging`, or `production` |
+    | **Issues** | Any safety issues detected |
+  </Tab>
+  <Tab title="Proxy Traces">
+    Traces captured by the Avaliar Proxy gateway. These include:
+
+    | Field | Description |
+    |-------|-------------|
+    | **Trace ID** | Unique identifier for the trace |
+    | **Model** | The target model |
+    | **Provider** | The LLM provider |
+    | **Messages** | The full prompt messages |
+    | **Response** | The model's completion |
+    | **Latency** | Total round-trip time including proxy overhead |
+    | **Tokens** | Prompt tokens, completion tokens, and total |
+    | **Cost** | Estimated cost based on model pricing |
+    | **Status** | HTTP status code from the LLM provider |
+    | **Client IP** | The originating IP address |
+    | **Environment** | Inherited from the API key used |
+    | **Issues** | Any safety issues detected |
+  </Tab>
+</Tabs>
+
+## Filtering and Search
+
+The Trace Explorer provides several ways to find specific traces:
+
+- **Search** -- Search by trace ID or model name using the search bar
+- **Environment filter** -- Filter by `development`, `staging`, or `production`
+- **Severity filter** -- Show only traces with issues of a specific severity level
+- **Issue type filter** -- Filter by issue type (e.g., `prompt_injection`, `toxicity`, `pii`)
+- **Sort** -- Sort results by timestamp, model, latency, or cost
+
+Combine multiple filters to narrow down to exactly the traces you need.
+
+## Live Mode
+
+<Info>
+  Enable **Live Mode** to auto-refresh the Trace Explorer every 30 seconds. New traces appear at the top of the list without a manual page reload.
+</Info>
+
+Live Mode is useful when you are actively testing or deploying changes and want to watch traces arrive in real time.
+
+## Trace Detail View
+
+Click any trace to open the detail view. The detail panel shows:
+
+<Steps>
+  <Step title="Prompt and Response">
+    The full prompt (or message array) and the model's response. Responses are rendered as Markdown for readability.
+  </Step>
+  <Step title="Detected Issues">
+    A list of all issues found by the detection pipeline. Each issue shows its type, severity badge, confidence score, and the excerpt that triggered the finding.
+  </Step>
+  <Step title="Performance Metrics">
+    Key metrics for the trace:
+
+    | Metric | Description |
+    |--------|-------------|
+    | **Latency** | End-to-end execution time in milliseconds |
+    | **Prompt tokens** | Number of tokens in the input |
+    | **Completion tokens** | Number of tokens in the output |
+    | **Total tokens** | Combined token count |
+    | **Cost** | Estimated cost in USD |
+  </Step>
+  <Step title="Trace Tree">
+    For SDK traces with nested spans, the trace tree shows the full execution flow as a parent-child hierarchy. Each node displays its span type, latency, and status.
+  </Step>
+</Steps>
+
+<Tip>
+  Use the trace tree view to see the full execution flow of nested `@traceable` calls. This is especially useful for debugging multi-step pipelines like RAG workflows or agent loops.
+</Tip>
+
+## Trace States
+
+Every trace moves through one of three states after ingestion:
+
+| State | Badge | Description |
+|-------|-------|-------------|
+| **Pending** | <Badge>Pending</Badge> | The detection pipeline is still processing this trace. |
+| **Issues Found** | <Badge>Issues</Badge> | One or more safety issues were detected. The severity badge reflects the highest severity found. |
+| **Clean** | <Badge>Clean</Badge> | Detection completed and no issues were found. |
+
+<Note>
+  Traces in the **Pending** state typically resolve within a few seconds. If a trace stays pending for longer than 30 seconds, check the [Architecture overview](/architecture/overview) for details on async processing.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Analytics" icon="chart-line" href="/platform/analytics">
+    View aggregated metrics and trends across all your traces.
+  </Card>
+  <Card title="Alerts" icon="bell" href="/platform/alerts">
+    Configure notifications for safety issues detected in your traces.
+  </Card>
+</CardGroup>

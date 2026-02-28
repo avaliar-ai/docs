@@ -1,0 +1,109 @@
+---
+title: "Installation"
+description: "Install and configure the Avaliar Python SDK"
+icon: "download"
+---
+
+## Prerequisites
+
+<Info>
+  The Avaliar Python SDK requires **Python 3.13** or higher.
+</Info>
+
+Verify your Python version before proceeding:
+
+```bash
+python --version
+```
+
+## Installation
+
+Install the SDK from PyPI:
+
+```bash
+pip install avaliar-python-sdk
+```
+
+## Environment Variables
+
+Configure the SDK through environment variables. You can set them in your shell, a `.env` file, or your deployment platform.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AVALIAR_API_KEY` | Yes | -- | Your API key from the [Avaliar dashboard](https://app.avaliar.ai) |
+| `AVALIAR_API_URL` | No | `https://api.avaliar.ai/v1` | API endpoint URL |
+| `OPENAI_API_KEY` | No | -- | Required when using `detection_mode="local"` |
+
+Set your environment variables:
+
+<Tabs>
+  <Tab title="Shell">
+    ```bash
+    export AVALIAR_API_KEY="your-api-key"
+
+    # Optional
+    export AVALIAR_API_URL="https://api.avaliar.ai/v1"
+    export OPENAI_API_KEY="your-openai-key"
+    ```
+  </Tab>
+  <Tab title=".env file">
+    ```bash .env
+    AVALIAR_API_KEY=your-api-key
+
+    # Optional
+    AVALIAR_API_URL=https://api.avaliar.ai/v1
+    OPENAI_API_KEY=your-openai-key
+    ```
+  </Tab>
+</Tabs>
+
+## Basic Usage
+
+Once installed and configured, import the SDK and start tracing your LLM calls:
+
+```python
+from avaliar import traceable
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+)
+async def generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+
+
+result = await generate([
+    {"role": "user", "content": "Hello, world!"}
+])
+```
+
+The `@traceable` decorator automatically captures inputs, outputs, latency, and token usage -- then submits the trace to the Avaliar platform in the background.
+
+<Note>
+  You can get your API key from the **API Keys** page in the [Avaliar dashboard](https://app.avaliar.ai). Each key is scoped to your organization and can be revoked at any time.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="@traceable Decorator" icon="code" href="/sdk/traceable">
+    Learn how to instrument your LLM functions with automatic tracing.
+  </Card>
+  <Card title="Detection" icon="shield" href="/sdk/detection">
+    Enable safety detection on your traced calls.
+  </Card>
+  <Card title="AvaliarBaseLLM" icon="robot" href="/sdk/base-llm">
+    Implement the LLM interface for benchmarks and evaluations.
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/sdk/error-handling">
+    Handle errors and configure retry behavior.
+  </Card>
+</CardGroup>

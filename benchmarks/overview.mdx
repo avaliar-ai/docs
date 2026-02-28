@@ -1,0 +1,75 @@
+---
+title: "Benchmarks Overview"
+description: "Evaluate your LLM's capabilities with standardized benchmark suites"
+icon: "chart-bar"
+---
+
+## What are Benchmarks?
+
+Benchmarks are standardized tests that measure LLM performance across diverse tasks. Each benchmark uses a well-established academic dataset with known correct answers, allowing you to objectively score your model's capabilities in areas like knowledge recall, reasoning, commonsense understanding, truthfulness, and code generation.
+
+Avaliar integrates these benchmarks directly into its Python SDK so you can run evaluations, track results over time, and compare models — all from a single platform.
+
+## Why Benchmark Your Models?
+
+<CardGroup cols={2}>
+  <Card title="Understand Capabilities" icon="brain">
+    Quantify what your model can and cannot do across knowledge domains, reasoning tasks, and code generation.
+  </Card>
+  <Card title="Compare Models" icon="code-compare">
+    Run the same benchmark suite against different models or providers to make data-driven selection decisions.
+  </Card>
+  <Card title="Track Over Time" icon="chart-line">
+    Re-run benchmarks after fine-tuning, prompt changes, or model upgrades to measure the impact on performance.
+  </Card>
+  <Card title="Meet Compliance Requirements" icon="clipboard-check">
+    Document model capabilities with standardized, reproducible evaluation results for audits and stakeholder reviews.
+  </Card>
+</CardGroup>
+
+## Available Benchmarks
+
+Avaliar includes six industry-standard benchmark suites:
+
+| Benchmark | What It Measures |
+|-----------|-----------------|
+| **MMLU** | Broad multi-task knowledge across 57 subjects (STEM, humanities, social sciences, and more). |
+| **DROP** | Discrete reasoning over paragraphs — reading comprehension combined with numerical reasoning. |
+| **HellaSwag** | Commonsense reasoning via sentence completion. |
+| **TruthfulQA** | Whether models generate truthful answers instead of common misconceptions. |
+| **BigBenchHard** | 23 challenging multi-step reasoning tasks from BIG-Bench. |
+| **HumanEval** | Functional code generation correctness with execution-based scoring. |
+
+## Benchmarking Workflow
+
+<Steps>
+  <Step title="Implement AvaliarBaseLLM">
+    Create a class that wraps your model behind the standard `AvaliarBaseLLM` interface. This gives the benchmark runner a consistent way to call your model regardless of provider.
+  </Step>
+  <Step title="Choose Benchmarks">
+    Select one or more benchmark suites and configure tasks, shot count, and other parameters to match your evaluation goals.
+  </Step>
+  <Step title="Run Evaluation">
+    Call `benchmark.evaluate()` with your model instance. The runner sends each test case to your model, collects responses, and computes scores automatically.
+  </Step>
+  <Step title="Post Results to Avaliar">
+    Upload benchmark results to the Avaliar platform with `benchmark.post_results()`. Tag results with model name, version, and any custom labels.
+  </Step>
+  <Step title="Compare in Dashboard">
+    Open the Avaliar dashboard to visualize results, compare models side-by-side, and track capability trends across runs.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Running Benchmarks" icon="play" href="/benchmarks/running">
+    Step-by-step guide to running your first benchmark evaluation.
+  </Card>
+  <Card title="Available Benchmarks" icon="list-check" href="/benchmarks/available">
+    Detailed documentation for all 6 benchmark suites with usage examples.
+  </Card>
+  <Card title="Safety & Bias Evals" icon="flask-vial" href="/benchmarks/evals">
+    Evaluate your model for bias, toxicity, and safety risks.
+  </Card>
+</CardGroup>

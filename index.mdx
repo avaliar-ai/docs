@@ -1,97 +1,61 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Avaliar AI Documentation"
+description: "Monitor, detect, and fix AI safety issues in production"
+icon: "shield-check"
 ---
 
-## Setting up
+Avaliar is an AI observability platform that monitors, detects, and fixes safety issues in LLM applications. Whether you are dealing with hallucinations, bias, toxicity, PII leaks, prompt injection, or jailbreak attempts, Avaliar provides real-time detection and actionable insights to keep your AI systems safe and reliable.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running with Avaliar in 5 minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Python SDK" icon="python" href="/sdk/installation">
+    Install and configure the Avaliar Python SDK.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Proxy Gateway" icon="server" href="/proxy/overview">
+    Route LLM traffic through the Avaliar Proxy for zero-code tracing.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why Avaliar?
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Real-time Detection" icon="radar">
+    Six built-in detectors analyze every LLM interaction for prompt injection, jailbreak attempts, toxicity, PII leaks, bias, and hallucinations. Issues are flagged in milliseconds, not hours.
+  </Card>
+  <Card title="Comprehensive Benchmarks" icon="chart-bar">
+    Evaluate your models against industry-standard benchmark suites including MMLU, DROP, HellaSwag, TruthfulQA, BigBenchHard, and HumanEval. Track capability over time and across model versions.
+  </Card>
+  <Card title="Actionable Alerts" icon="bell">
+    Configure threshold, trend, pattern, and anomaly-based alert conditions. Receive notifications via email, Slack, or webhook the moment a safety issue surfaces.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## How It Works
 
-## Need inspiration?
+Avaliar follows a three-stage trace lifecycle that takes every LLM interaction from raw data to resolved insight.
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Capture" icon="inbox">
+    Instrument your application with the `@traceable` decorator or route traffic through the Avaliar Proxy. Every request and response is recorded as a structured trace with full metadata, including model, provider, latency, and token counts.
+  </Step>
+  <Step title="Detect" icon="magnifying-glass">
+    Traces are automatically passed through the detection pipeline. Each enabled detector analyzes the input and output for safety issues. Detectors run locally on your infrastructure or in the Avaliar cloud, depending on your configuration.
+  </Step>
+  <Step title="Alert" icon="triangle-exclamation">
+    When a detector finds an issue, Avaliar creates a typed, severity-scored finding and evaluates it against your alert rules. If a rule matches, a notification is dispatched to your configured channels so your team can investigate and respond.
+  </Step>
+</Steps>
+
+<CardGroup cols={3}>
+  <Card title="Core Concepts" icon="lightbulb" href="/concepts">
+    Understand traces, spans, detectors, and the rest of the Avaliar data model.
+  </Card>
+  <Card title="Detection" icon="shield-halved" href="/detection/overview">
+    Learn how Avaliar's six detectors work and how to configure them.
+  </Card>
+  <Card title="Benchmarks & Evals" icon="flask-vial" href="/benchmarks/overview">
+    Run standardized evaluations to measure model safety and capability.
+  </Card>
+</CardGroup>

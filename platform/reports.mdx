@@ -1,0 +1,162 @@
+---
+title: "Reports"
+description: "Generate compliance and analytics reports"
+icon: "file-chart-column"
+---
+
+## Overview
+
+Reports aggregate your trace data, detection results, and performance metrics into structured documents for compliance, stakeholder review, and team analysis. Generate reports on demand from the dashboard or programmatically via the API.
+
+Manage reports at [app.avaliar.ai/reports](https://app.avaliar.ai/reports).
+
+## Report Types
+
+Avaliar supports four report types, each focused on a different dimension of your LLM operations.
+
+<AccordionGroup>
+  <Accordion title="Security Risk Report" icon="shield-halved">
+    A comprehensive analysis of detected security issues across your LLM applications. This report covers:
+
+    - Total issues detected by type and severity
+    - Threat patterns and attack trends
+    - Risk levels by model and environment
+    - Top affected traces with issue details
+    - Recommendations for mitigation
+
+    Use this report for security audits, incident reviews, and compliance documentation.
+  </Accordion>
+
+  <Accordion title="Model Cost Report" icon="coins">
+    A detailed cost breakdown across your LLM stack. This report includes:
+
+    - Total spend by model and provider
+    - Cost trends over the selected time period
+    - Token usage breakdown (prompt vs. completion)
+    - Cost per request averages
+    - Model efficiency comparisons
+
+    Use this report for budget planning, cost optimization, and financial reviews.
+  </Accordion>
+
+  <Accordion title="Platform Operations Report" icon="server">
+    System performance and usage statistics for your Avaliar deployment. This report covers:
+
+    - Total request volume and throughput
+    - Latency distribution (p50, p95, p99)
+    - Error rates and failed requests
+    - Uptime and availability metrics
+    - Usage by environment and integration type
+
+    Use this report for operational reviews, SLA tracking, and capacity planning.
+  </Accordion>
+
+  <Accordion title="AI Risk Posture Report" icon="gauge-high">
+    An overall assessment of your AI safety posture. This report combines:
+
+    - Detection results and issue trends
+    - Compliance status against safety benchmarks
+    - Risk score by model and use case
+    - Benchmark and eval results summary
+    - Actionable recommendations for improving safety
+
+    Use this report for executive briefings, board presentations, and regulatory compliance.
+  </Accordion>
+</AccordionGroup>
+
+## Output Formats
+
+Reports can be exported in the following formats:
+
+| Format | Description |
+|--------|-------------|
+| **PDF** | Formatted document suitable for sharing and archiving |
+| **DOCX** | Editable Word document for further customization |
+| **Both** | Generate PDF and DOCX simultaneously |
+
+## Customization Options
+
+When generating a report, you can configure the following options:
+
+| Option | Description |
+|--------|-------------|
+| **Company name** | Displayed on the cover page and headers |
+| **Report title** | Custom title for the report |
+| **Custom colors** | Brand colors for charts and headers |
+| **Date range** | The time period covered by the report |
+| **Environment filter** | Limit to `development`, `staging`, or `production` |
+| **Model filter** | Limit to specific models |
+| **Provider filter** | Limit to specific LLM providers |
+
+## Generating a Report
+
+<Tabs>
+  <Tab title="Dashboard">
+    <Steps>
+      <Step title="Navigate to Reports">
+        Go to [app.avaliar.ai/reports](https://app.avaliar.ai/reports) and click **Generate Report**.
+      </Step>
+      <Step title="Select Report Type">
+        Choose one of the four report types: Security Risk, Model Cost, Platform Operations, or AI Risk Posture.
+      </Step>
+      <Step title="Configure Options">
+        Set the date range, filters, output format, and any customization options.
+      </Step>
+      <Step title="Generate">
+        Click **Generate** to start the report. You will be redirected to the report detail page where you can track progress.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="API">
+    Use the Reports API to generate reports programmatically:
+
+    ```bash
+    curl -X POST https://api.avaliar.ai/v1/reports/generate \
+      -H "Authorization: Bearer YOUR_CLERK_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "report_type": "security_risk",
+        "format": "pdf",
+        "date_range": {
+          "start": "2025-01-01T00:00:00Z",
+          "end": "2025-01-31T23:59:59Z"
+        },
+        "filters": {
+          "environment": "production"
+        },
+        "customization": {
+          "company_name": "Acme Corp",
+          "report_title": "January Security Review"
+        }
+      }'
+    ```
+
+    The API returns a report job ID that you can poll for status.
+  </Tab>
+</Tabs>
+
+## Report Status
+
+Reports are generated asynchronously. After you request a report, it progresses through the following states:
+
+| Status | Description |
+|--------|-------------|
+| **Pending** | The report job has been created and is waiting to be processed |
+| **Processing** | The report is being generated. Data is being aggregated and formatted. |
+| **Completed** | The report is ready for download |
+| **Failed** | An error occurred during generation. Check the error details and retry. |
+
+<Info>
+  Report generation typically takes between 10 seconds and a few minutes depending on the date range and volume of data. You will receive a notification when the report is ready.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Team Management" icon="users" href="/platform/team">
+    Control who can generate and access reports in your organization.
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/platform/analytics">
+    View real-time metrics before generating a formal report.
+  </Card>
+</CardGroup>

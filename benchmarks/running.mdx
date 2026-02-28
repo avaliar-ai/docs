@@ -1,0 +1,147 @@
+---
+title: "Running Benchmarks"
+description: "Step-by-step guide to running benchmarks against your model"
+icon: "play"
+---
+
+Follow these steps to run a benchmark evaluation against your model, inspect the results, and post them to the Avaliar platform.
+
+<Steps>
+  <Step title="Implement AvaliarBaseLLM">
+    Create a class that extends `AvaliarBaseLLM` and implements the `generate()` method. This gives the benchmark runner a standard interface to call your model.
+
+    ```python
+    from avaliar.models.base import AvaliarBaseLLM
+    from openai import OpenAI
+
+    class MyLLM(AvaliarBaseLLM):
+        def __init__(self, model: str = "gpt-4o"):
+            self.client = OpenAI()
+            self.model = model
+
+        def generate(self, prompt: str) -> str:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0
+            )
+            return response.choices[0].message.content
+    ```
+
+    <Tip>
+      Use `temperature=0.0` for deterministic results during benchmarking. This ensures consistent scores across runs and makes results reproducible.
+    </Tip>
+
+    See the [AvaliarBaseLLM reference](/sdk/base-llm) for the full interface definition, including optional `batch_generate()` for concurrent execution.
+  </Step>
+
+  <Step title="Choose and Initialize a Benchmark">
+    Import the benchmark class and its task enum, then configure the evaluation parameters.
+
+    ```python
+    from avaliar.benchmarks import MMLU
+    from avaliar.benchmarks.mmlu.task import MMLUTask
+
+    benchmark = MMLU(
+        tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.HIGH_SCHOOL_MATHEMATICS],
+        n_shots=5
+    )
+    ```
+
+    Each benchmark accepts a list of specific tasks (subject areas or problem categories) and a shot count that controls the number of examples included in the prompt for few-shot evaluation.
+  </Step>
+
+  <Step title="Run the Evaluation">
+    Pass your model instance to `benchmark.evaluate()`. The runner sends each test case to your model, collects responses, and computes scores.
+
+    ```python
+    result = benchmark.evaluate(MyLLM())
+    print(f"Overall Accuracy: {result.overall_accuracy:.2%}")
+    ```
+
+    <Note>
+      Benchmark datasets are downloaded from HuggingFace on first run. Subsequent runs use the cached dataset. Make sure you have an internet connection for the initial run.
+    </Note>
+  </Step>
+
+  <Step title="Inspect Results">
+    After evaluation, access the detailed results through the benchmark object.
+
+    ```python
+    # Full predictions DataFrame with inputs, outputs, and scores
+    print(benchmark.predictions)
+
+    # Per-task accuracy breakdown
+    print(benchmark.task_scores)
+    ```
+
+    The `predictions` DataFrame contains every test case with the model's response and whether it was correct. The `task_scores` dictionary provides accuracy broken down by each task or subject area.
+  </Step>
+
+  <Step title="Post Results to Avaliar">
+    Upload the benchmark results to the Avaliar platform for tracking and comparison.
+
+    ```python
+    benchmark.post_results(
+        model_name="gpt-4o",
+        tags=["production", "v1.0"]
+    )
+    ```
+
+    Results appear in the Avaliar dashboard where you can compare across models, view historical trends, and include benchmark data in compliance reports.
+  </Step>
+</Steps>
+
+## Full Example
+
+Here is the complete workflow in a single script:
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+from avaliar.benchmarks import MMLU
+from avaliar.benchmarks.mmlu.task import MMLUTask
+from openai import OpenAI
+
+
+class MyLLM(AvaliarBaseLLM):
+    def __init__(self, model: str = "gpt-4o"):
+        self.client = OpenAI()
+        self.model = model
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0
+        )
+        return response.choices[0].message.content
+
+
+# Initialize benchmark
+benchmark = MMLU(
+    tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.HIGH_SCHOOL_MATHEMATICS],
+    n_shots=5
+)
+
+# Run evaluation
+result = benchmark.evaluate(MyLLM())
+print(f"Overall Accuracy: {result.overall_accuracy:.2%}")
+print(f"Task Scores: {benchmark.task_scores}")
+
+# Post to Avaliar
+benchmark.post_results(
+    model_name="gpt-4o",
+    tags=["production", "v1.0"]
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Available Benchmarks" icon="list-check" href="/benchmarks/available">
+    See all 6 benchmark suites with detailed configuration options and examples.
+  </Card>
+  <Card title="Safety & Bias Evals" icon="flask-vial" href="/benchmarks/evals">
+    Evaluate your model for bias, toxicity, and safety risks.
+  </Card>
+</CardGroup>

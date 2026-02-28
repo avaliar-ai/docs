@@ -1,0 +1,101 @@
+---
+title: "Detection Modes"
+description: "Choose between local and cloud detection"
+icon: "toggle-on"
+---
+
+When using the Avaliar SDK, you can choose between two detection modes: **local** and **cloud**. Each mode determines where detection runs, what infrastructure is required, and how results are delivered.
+
+<Note>
+  Detection modes apply to **SDK integration** only. When using the [Proxy](/proxy/overview), detection always runs on Avaliar's cloud backend.
+</Note>
+
+## Local Detection
+
+Local detection runs entirely on **your** infrastructure using **your** OpenAI API key. After a traced function returns, a background thread runs all configured detectors and then posts the complete trace (with detection results) to the Avaliar backend.
+
+### Requirements
+
+- The `OPENAI_API_KEY` environment variable must be set in your runtime environment
+- Your OpenAI key must have access to the model used for detection analysis
+
+### How it works
+
+1. Your traced function executes and returns a result to the caller
+2. A background thread picks up the trace data (prompt + response)
+3. Detection runs locally using your OpenAI API key
+4. The complete trace — including detection results — is posted to Avaliar
+
+### Best for
+
+- **Development and testing** — Get detection results immediately without waiting for backend processing
+- **Full control** — All detection happens on your infrastructure, nothing leaves your network until the final trace is posted
+- **Fast feedback loops** — Results are available as soon as the background thread completes
+
+### Example
+
+```python
+from avaliar import traceable
+
+@traceable(detection_mode="local")
+def summarize(text: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "user", "content": f"Summarize: {text}"}
+        ]
+    )
+    return response.choices[0].message.content
+```
+
+## Cloud Detection
+
+Cloud detection offloads all analysis to Avaliar's backend infrastructure. The trace is posted immediately after the function returns, and a background worker on Avaliar's servers runs detection asynchronously via a Redis queue.
+
+### Requirements
+
+- No additional API keys or infrastructure needed
+- An active Avaliar API key with SDK scope
+
+### How it works
+
+1. Your traced function executes and returns a result to the caller
+2. The trace data (prompt + response) is posted to Avaliar immediately
+3. Avaliar queues a detection job to Redis
+4. A backend worker picks up the job, runs all detectors, and stores the results
+
+### Best for
+
+- **Production deployments** — Minimal overhead on your application, no background threads consuming resources
+- **Simplicity** — No OpenAI key management for detection, no local compute for analysis
+- **Scale** — Avaliar's backend handles detection processing independently of your application's load
+
+### Example
+
+```python
+from avaliar import traceable
+
+@traceable(detection_mode="cloud")
+def summarize(text: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "user", "content": f"Summarize: {text}"}
+        ]
+    )
+    return response.choices[0].message.content
+```
+
+## Comparison
+
+| Feature                 | Local                         | Cloud                          |
+| ----------------------- | ----------------------------- | ------------------------------ |
+| Runs on                 | Your infrastructure           | Avaliar servers                |
+| Requires OpenAI key     | Yes                           | No                             |
+| Latency impact          | Minimal (background thread)   | None (async on backend)        |
+| Results available       | Immediately after detection   | After backend processing       |
+| Best for                | Development, testing          | Production                     |
+
+<Tip>
+  Start with **local** mode during development for fast feedback, then switch to **cloud** in production to minimize overhead on your application.
+</Tip>

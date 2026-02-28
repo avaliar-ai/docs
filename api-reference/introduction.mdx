@@ -1,33 +1,80 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Complete API reference for the Avaliar platform"
+icon: "square-terminal"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Base URL
 
-## Welcome
+```
+https://api.avaliar.ai
+```
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
-
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+All endpoints are prefixed with `/api/v1/`.
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+The Avaliar API supports two authentication methods depending on the type of endpoint you are calling.
+
+### Bearer Token (JWT)
+
+For dashboard and frontend endpoints. Obtained via Clerk authentication.
+
+```
+Authorization: Bearer {jwt_token}
+```
+
+### API Key
+
+For SDK and Proxy integration endpoints. Created in the dashboard.
+
+```
+X-API-Key: {your_api_key}
+```
+
+## Pagination
+
+List endpoints support pagination with the following query parameters:
+
+| Parameter   | Default | Description                |
+|-------------|---------|----------------------------|
+| `page`      | 1       | Page number                |
+| `page_size` | 20      | Items per page (max: 100)  |
+
+Paginated responses include the following metadata fields:
+
+| Field         | Type    | Description                        |
+|---------------|---------|------------------------------------|
+| `total`       | integer | Total number of items              |
+| `page`        | integer | Current page number                |
+| `page_size`   | integer | Number of items per page           |
+| `total_pages` | integer | Total number of pages              |
+| `has_next`    | boolean | Whether a next page exists         |
+| `has_prev`    | boolean | Whether a previous page exists     |
+
+## Error Responses
+
+The API uses standard HTTP status codes to indicate the success or failure of a request.
+
+| Status | Description                                          |
+|--------|------------------------------------------------------|
+| 400    | Bad Request — Invalid parameters or request body     |
+| 401    | Unauthorized — Missing or invalid authentication     |
+| 403    | Forbidden — Insufficient permissions or plan         |
+| 404    | Not Found — Resource does not exist                  |
+| 429    | Too Many Requests — Rate limit exceeded              |
+| 500    | Internal Server Error                                |
+
+Error response body format:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "detail": "Error description"
+}
 ```
+
+## Rate Limiting
+
+- API keys have per-hour rate limits based on your organization's plan.
+- Rate limit information is returned in response headers.
+- When you receive a `429` response, retry with exponential backoff.

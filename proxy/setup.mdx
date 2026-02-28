@@ -1,0 +1,107 @@
+---
+title: "Proxy Setup"
+description: "Configure your application to use the Avaliar Proxy"
+icon: "gear"
+---
+
+Get your application routed through the Avaliar Proxy in four steps. No code changes beyond updating your LLM client's base URL.
+
+<Steps>
+  <Step title="Get a Proxy API Key">
+    Create an API key with the **proxy** scope from the [Avaliar Dashboard](https://app.avaliar.ai/settings/api-keys).
+
+    1. Navigate to **Settings > API Keys**
+    2. Click **Create API Key**
+    3. Select the **proxy** scope
+    4. Copy the generated key — you won't be able to see it again
+
+    <Warning>
+      Never expose your proxy API key in client-side code. The key should only be used in server-side applications or backend services.
+    </Warning>
+  </Step>
+
+  <Step title="Configure Your LLM Client">
+    Point your LLM client's base URL to the Avaliar Proxy endpoint and include your Avaliar API key in the request headers.
+
+    <CodeGroup>
+      ```python Python (OpenAI SDK)
+      from openai import OpenAI
+
+      client = OpenAI(
+          api_key="your-openai-key",
+          base_url="https://proxy.avaliar.ai/v1",
+          default_headers={
+              "X-Avaliar-Key": "your-avaliar-proxy-key"
+          }
+      )
+
+      response = client.chat.completions.create(
+          model="gpt-4o",
+          messages=[
+              {"role": "user", "content": "Hello, world!"}
+          ]
+      )
+      ```
+
+      ```javascript Node.js (OpenAI SDK)
+      import OpenAI from "openai";
+
+      const client = new OpenAI({
+          apiKey: "your-openai-key",
+          baseURL: "https://proxy.avaliar.ai/v1",
+          defaultHeaders: {
+              "X-Avaliar-Key": "your-avaliar-proxy-key"
+          }
+      });
+
+      const response = await client.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+              { role: "user", content: "Hello, world!" }
+          ]
+      });
+      ```
+
+      ```bash curl
+      curl https://proxy.avaliar.ai/v1/chat/completions \
+        -H "Authorization: Bearer your-openai-key" \
+        -H "X-Avaliar-Key: your-avaliar-proxy-key" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "model": "gpt-4o",
+          "messages": [
+            {"role": "user", "content": "Hello, world!"}
+          ]
+        }'
+      ```
+    </CodeGroup>
+
+    Your OpenAI API key is passed through to the LLM provider. The `X-Avaliar-Key` header authenticates your request with the Avaliar Proxy.
+  </Step>
+
+  <Step title="Make Requests as Normal">
+    Once configured, use your LLM client exactly as you normally would. Every request is automatically:
+
+    - Checked for prompt injection (synchronous — blocks harmful prompts)
+    - Forwarded to the LLM provider
+    - Stored as a trace with full request/response data
+    - Queued for asynchronous safety detection
+
+    No additional code or decorators are needed. The proxy is fully transparent to your application logic.
+  </Step>
+
+  <Step title="View Traces in the Dashboard">
+    Open the [Avaliar Dashboard](https://app.avaliar.ai/traces) to see your traces in real time.
+
+    Each trace includes:
+    - The full prompt and response
+    - Model, provider, and token counts
+    - Latency breakdown including `proxy_overhead_ms`
+    - Detection results and any identified issues
+    - Cost estimates
+  </Step>
+</Steps>
+
+<Tip>
+  You can verify the proxy is working by making a single test request and checking the [Traces](https://app.avaliar.ai/traces) page in the dashboard. The trace should appear within seconds.
+</Tip>

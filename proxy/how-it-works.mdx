@@ -1,0 +1,87 @@
+---
+title: "How the Proxy Works"
+description: "Understand the 3-stage proxy pipeline"
+icon: "diagram-project"
+---
+
+## Overview
+
+The Avaliar Proxy operates in three stages for each LLM request. Stage 1 validates and stores the incoming request (with synchronous prompt injection detection). Stage 2 forwards the request to the LLM provider and stores the response. Stage 3 runs asynchronous detection on the full trace.
+
+<Steps>
+  <Step title="Stage 1: Validate & Store Request">
+    When a request arrives at the proxy, the following happens before anything is forwarded to the LLM provider:
+
+    **API Key Validation**
+
+    The proxy validates the caller's API key via `POST /api/v1/internal/proxy/validate-key`. This check verifies that:
+    - The key is active and has not been revoked
+    - The key has the **proxy** scope
+    - The organization has an active **Pro plan**
+    - The rate limit has not been exceeded
+
+    **Request Storage**
+
+    The proxy stores the incoming request data via `POST /api/v1/internal/proxy/proxy-trace/request`, including:
+    - The prompt / messages
+    - Target model and provider
+    - Request metadata (headers, timestamps, client info)
+
+    **Synchronous Prompt Injection Detection**
+
+    The proxy runs prompt injection detection on the input _before_ forwarding it. If a prompt injection is detected, the proxy returns a blocked response immediately and does **not** forward the request to the LLM provider.
+
+    <Info>
+      Prompt injection detection in Stage 1 is **synchronous** — harmful prompts are blocked before reaching the LLM. This prevents your LLM provider from ever processing a malicious input.
+    </Info>
+  </Step>
+
+  <Step title="Stage 2: Forward & Store Response">
+    If the request passes Stage 1 validation and prompt injection checks, the proxy forwards it to the actual LLM provider.
+
+    Once the LLM responds, the proxy captures:
+    - The full response content
+    - End-to-end latency
+    - Token counts (prompt tokens, completion tokens, total)
+    - Estimated cost based on model pricing
+
+    All of this is stored via `POST /api/v1/internal/proxy/proxy-trace/response`, completing the trace record with both the request and response data.
+  </Step>
+
+  <Step title="Stage 3: Async Detection">
+    After the response is returned to the caller, the proxy queues a detection job to Redis for background processing.
+
+    A background worker picks up the job and runs all configured detectors on the full trace (prompt + response), including:
+    - Jailbreak detection
+    - Toxicity analysis
+    - PII detection
+    - Bias detection
+    - Hallucination detection
+
+    Once detection completes:
+    - Results are stored and visible in the [dashboard](https://app.avaliar.ai/traces)
+    - Any configured [alerts](/platform/alerts) are triggered based on detection results and severity
+
+    <Info>
+      All detection beyond prompt injection runs **asynchronously** and does not add latency to the response. Your application receives the LLM response as fast as possible.
+    </Info>
+  </Step>
+</Steps>
+
+## Summary
+
+```
+Request arrives
+  │
+  ├─ Stage 1: Validate key → Store request → Prompt injection check
+  │     │
+  │     ├─ Injection detected → Return blocked response (request never reaches LLM)
+  │     │
+  │     └─ Clean → Continue
+  │
+  ├─ Stage 2: Forward to LLM → Capture response → Store trace
+  │
+  └─ Stage 3: Queue async detection → Background worker analyzes full trace
+        │
+        └─ Results stored → Alerts triggered if configured
+```

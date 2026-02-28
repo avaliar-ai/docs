@@ -1,0 +1,64 @@
+---
+title: "Proxy Overview"
+description: "Route LLM API calls through the Avaliar Proxy for automatic monitoring"
+icon: "server"
+---
+
+## What is the Avaliar Proxy?
+
+The Avaliar Proxy is a transparent gateway that sits between your application and LLM providers. Every request flowing through the proxy is automatically captured, analyzed for safety issues, and stored as a trace — with zero changes to your application code.
+
+Instead of instrumenting your codebase with decorators or SDK calls, you simply point your LLM client at the Avaliar Proxy endpoint. The proxy handles everything else: tracing, detection, cost tracking, and alerting.
+
+## Benefits
+
+- **Zero-code integration** — Change a single base URL and you're monitoring every LLM call
+- **Automatic detection** — All requests and responses are analyzed for safety issues without any configuration
+- **Prompt injection blocking** — Synchronous detection blocks harmful prompts _before_ they reach the LLM provider
+- **Works with any LLM provider** — OpenAI, Anthropic, Cohere, and any OpenAI-compatible API
+- **Overhead tracking** — Every trace includes `proxy_overhead_ms` so you can monitor the proxy's impact on latency
+
+<Note>
+  Proxy integration requires a **Pro plan**. [Upgrade your plan](https://app.avaliar.ai/settings/billing) to get started.
+</Note>
+
+## Architecture
+
+The proxy adds a single hop between your application and the LLM provider. The flow looks like this:
+
+```
+Your Application  →  Avaliar Proxy  →  LLM Provider (OpenAI, Anthropic, etc.)
+       ↑                  |
+       └──────────────────┘
+         Response returned
+```
+
+For each request, the proxy:
+
+1. Validates your API key and checks for prompt injection
+2. Forwards the request to the LLM provider
+3. Captures the response and queues asynchronous detection
+4. Returns the response to your application
+
+The proxy adds minimal overhead, tracked as `proxy_overhead_ms` on every trace.
+
+## SDK vs Proxy Integration
+
+Choosing between the SDK and Proxy depends on your use case, plan, and how much control you need over detection.
+
+| Feature              | SDK                  | Proxy                       |
+| -------------------- | -------------------- | --------------------------- |
+| Integration effort   | Add `@traceable` decorator | Change base URL       |
+| Detection modes      | Local + Cloud        | Cloud only                  |
+| Prompt blocking      | No                   | Yes                         |
+| Overhead tracking    | No                   | Yes (`proxy_overhead_ms`)   |
+| Plan required        | Free                 | Pro                         |
+
+<CardGroup cols={2}>
+  <Card title="Proxy Setup" icon="gear" href="/proxy/setup">
+    Configure your application to use the Avaliar Proxy in minutes.
+  </Card>
+  <Card title="How the Proxy Works" icon="diagram-project" href="/proxy/how-it-works">
+    Understand the 3-stage pipeline that powers the proxy.
+  </Card>
+</CardGroup>

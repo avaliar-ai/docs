@@ -1,0 +1,237 @@
+---
+title: "@traceable Decorator"
+description: "Instrument your LLM functions with automatic tracing"
+icon: "code"
+---
+
+## Overview
+
+The `@traceable` decorator automatically captures inputs, outputs, timing, and metadata for any function in your LLM pipeline. Decorate your functions to build a full trace tree that is submitted to the Avaliar platform for monitoring and analysis.
+
+```python
+from avaliar import traceable
+```
+
+## Parameter Reference
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `span_type` | `"llm"` \| `"tool"` \| `"agent"` \| `"generic"` | required | Type of operation being traced |
+| `model` | `str` | `None` | LLM model name (llm spans only) |
+| `provider` | `str` | `None` | Provider name (llm spans only) |
+| `temperature` | `float` | `None` | Sampling temperature (llm spans only) |
+| `top_p` | `float` | `None` | Top-p parameter (llm spans only) |
+| `detection` | `bool` | `False` | Enable safety detection on this span |
+| `detectors` | `list[DetectorType]` | `[]` | Specific detectors to run |
+| `detection_mode` | `"local"` \| `"cloud"` | `"local"` | Where detection processing runs |
+
+## Span Types
+
+Each span type captures different metadata and serves a different purpose in your trace tree.
+
+<AccordionGroup>
+  <Accordion title="llm -- LLM API calls" icon="brain">
+    Use for direct calls to language model APIs. Captures messages, model configuration, and token usage.
+
+    ```python
+    @traceable(
+        "llm",
+        model="gpt-4o",
+        provider="openai",
+        temperature=0.7,
+        top_p=1.0,
+    )
+    async def chat(messages: list) -> str:
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+        )
+        return response.choices[0].message.content
+    ```
+  </Accordion>
+  <Accordion title="tool -- Tool and function calls" icon="wrench">
+    Use for tool executions, function calls, or any discrete operation performed by your agent.
+
+    ```python
+    @traceable("tool")
+    async def search_database(query: str) -> list[dict]:
+        results = await db.search(query)
+        return results
+    ```
+  </Accordion>
+  <Accordion title="agent -- Agent orchestration steps" icon="robot">
+    Use for high-level agent logic that coordinates multiple sub-operations.
+
+    ```python
+    @traceable("agent")
+    async def research_agent(question: str) -> str:
+        context = await search_database(question)
+        answer = await chat([
+            {"role": "system", "content": f"Context: {context}"},
+            {"role": "user", "content": question},
+        ])
+        return answer
+    ```
+  </Accordion>
+  <Accordion title="generic -- Any other operation" icon="circle">
+    Use for any operation that does not fit neatly into the other categories.
+
+    ```python
+    @traceable("generic")
+    async def process_request(request: dict) -> dict:
+        validated = validate(request)
+        result = await handle(validated)
+        return result
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Examples
+
+### Basic LLM Tracing
+
+The simplest use case: trace an async OpenAI call.
+
+```python
+from avaliar import traceable
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+)
+async def generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+```
+
+### Nested Spans
+
+Build a trace tree by nesting `@traceable` functions. The SDK automatically links parent and child spans using context variables.
+
+```python
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+)
+async def summarize(text: str) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": f"Summarize: {text}"}],
+    )
+    return response.choices[0].message.content
+
+
+@traceable("generic")
+async def process_document(document: str) -> dict:
+    summary = await summarize(document)
+    return {"original": document, "summary": summary}
+```
+
+When `process_document` calls `summarize`, the trace tree looks like:
+
+```
+process_document (generic)
+  └── summarize (llm)
+```
+
+### Detection-Enabled Tracing
+
+Add safety detection to any traced function by setting `detection=True` and specifying which detectors to run.
+
+```python
+from avaliar import traceable, DetectorType
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+    detection=True,
+    detectors=[
+        DetectorType.PROMPT_INJECTION,
+        DetectorType.TOXICITY,
+        DetectorType.PII,
+    ],
+    detection_mode="local",
+)
+async def safe_generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+```
+
+### Sync Function Tracing
+
+The decorator works with synchronous functions as well.
+
+```python
+from avaliar import traceable
+from openai import OpenAI
+
+client = OpenAI()
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+)
+def generate_sync(messages: list) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+```
+
+### Generator Tracing
+
+Trace generator functions that yield results incrementally. The SDK captures the full concatenated output once the generator completes.
+
+```python
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+)
+async def stream_generate(messages: list):
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        stream=True,
+    )
+    async for chunk in response:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content
+```
+
+## How It Works
+
+<Steps>
+  <Step title="Context Propagation">
+    When a `@traceable` function is called, the decorator creates a new span and stores it in a **context variable**. Any nested `@traceable` calls within the same execution context automatically inherit the parent span.
+  </Step>
+  <Step title="Trace Tree Construction">
+    As your code executes, the SDK builds a **trace tree** from the parent-child relationships between spans. Each span records its inputs, outputs, start time, end time, and any associated metadata.
+  </Step>
+  <Step title="Background Submission">
+    Once the outermost span completes, the full trace tree is serialized and **submitted to the Avaliar API in a background thread**. Your application code is never blocked by trace submission.
+  </Step>
+</Steps>
+
+<Note>
+  Traces are submitted in background threads and will never block your application. If the Avaliar API is unreachable, traces are silently dropped -- your application continues to run normally.
+</Note>
+
+<Tip>
+  Use nested `@traceable` decorators to build a trace tree that shows the full execution flow of your LLM pipeline. This makes it easy to identify bottlenecks, debug issues, and understand how your agents make decisions.
+</Tip>

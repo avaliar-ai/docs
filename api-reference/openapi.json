@@ -1,216 +1,1654 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "OpenAPI Plant Store",
-    "description": "A sample API that uses a plant store as an example to demonstrate features in the OpenAPI specification",
-    "license": {
-      "name": "MIT"
-    },
+    "title": "Avaliar API",
+    "description": "API for the Avaliar AI observability platform",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "http://sandbox.mintlify.com"
+      "url": "https://api.avaliar.ai",
+      "description": "Production"
     }
   ],
   "security": [
-    {
-      "bearerAuth": []
-    }
+    { "bearerAuth": [] }
   ],
-  "paths": {
-    "/plants": {
-      "get": {
-        "description": "Returns all plants from the system that the user has access to",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "The maximum number of results to return",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Clerk JWT token for dashboard endpoints"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for SDK and Proxy endpoints"
+      }
+    },
+    "schemas": {
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "total_pages": { "type": "integer" },
+          "has_next": { "type": "boolean" },
+          "has_prev": { "type": "boolean" }
+        }
+      },
+      "SDKTraceCreate": {
+        "type": "object",
+        "required": ["id", "trace_id", "name", "start_time"],
+        "properties": {
+          "id": { "type": "string", "description": "Unique run ID" },
+          "trace_id": { "type": "string", "description": "Trace ID (root run ID)" },
+          "name": { "type": "string", "description": "Function name" },
+          "run_type": { "type": "string", "enum": ["llm", "tool", "agent", "generic"], "default": "generic" },
+          "start_time": { "type": "string", "format": "date-time" },
+          "end_time": { "type": "string", "format": "date-time" },
+          "inputs": { "type": "object", "default": {} },
+          "outputs": { "type": "object" },
+          "error": { "type": "string" },
+          "parent_run_id": { "type": "string" },
+          "input_messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string", "enum": ["system", "user", "assistant"] },
+                "content": { "type": "string" }
+              }
+            }
+          },
+          "output_message": { "type": "string" },
+          "generation_info": {
+            "type": "object",
+            "properties": {
+              "model": { "type": "string" },
+              "provider": { "type": "string" },
+              "temperature": { "type": "number" },
+              "top_p": { "type": "number" },
+              "input_tokens": { "type": "integer" },
+              "output_tokens": { "type": "integer" }
+            }
+          },
+          "detectors": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "issues": { "type": "array", "items": { "$ref": "#/components/schemas/Issue" } },
+          "detection_time_ms": { "type": "number" },
+          "detectors_run": { "type": "array", "items": { "type": "string" } },
+          "cost_usd": { "type": "number" },
+          "tokens_used": { "type": "object" }
+        }
+      },
+      "ProxyTraceResponse": {
+        "type": "object",
+        "properties": {
+          "trace_id": { "type": "string" },
+          "organization_id": { "type": "string", "format": "uuid" },
+          "provider": { "type": "string" },
+          "model": { "type": "string" },
+          "environment": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "has_prompt_issues": { "type": "boolean" },
+          "has_issues": { "type": "boolean" },
+          "severity": { "type": "string" },
+          "detection_completed_at": { "type": "string", "format": "date-time" },
+          "latency_ms": { "type": "integer" },
+          "proxy_overhead_ms": { "type": "integer" },
+          "tokens_total": { "type": "integer" },
+          "cost_cents": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SDKTraceResponse": {
+        "type": "object",
+        "properties": {
+          "trace_id": { "type": "string" },
+          "organization_id": { "type": "string", "format": "uuid" },
+          "provider": { "type": "string" },
+          "model": { "type": "string" },
+          "environment": { "type": "string" },
+          "detection_mode": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "has_prompt_issues": { "type": "boolean" },
+          "has_issues": { "type": "boolean" },
+          "severity": { "type": "string" },
+          "latency_ms": { "type": "integer" },
+          "tokens_total": { "type": "integer" },
+          "cost_cents": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Issue": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["prompt_injection", "jailbreak", "toxicity", "pii", "bias", "hallucination"] },
+          "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "detector_name": { "type": "string" },
+          "excerpt": { "type": "string" },
+          "metadata": { "type": "object" }
+        }
+      },
+      "APIKeyCreate": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "scopes": { "type": "array", "items": { "type": "string", "enum": ["sdk", "proxy", "admin"] }, "default": ["sdk"] },
+          "environment": { "type": "string", "enum": ["development", "staging", "production"], "default": "production" },
+          "detection_mode": { "type": "string", "enum": ["local", "cloud"] },
+          "ip_allowlist": { "type": "array", "items": { "type": "string" }, "default": [] }
+        }
+      },
+      "APIKeyResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "key_prefix": { "type": "string" },
+          "key": { "type": "string", "description": "Full key - only returned on creation" },
+          "scopes": { "type": "array", "items": { "type": "string" } },
+          "environment": { "type": "string" },
+          "detection_mode": { "type": "string" },
+          "ip_allowlist": { "type": "array", "items": { "type": "string" } },
+          "last_used_at": { "type": "string", "format": "date-time" },
+          "usage_count": { "type": "integer" },
+          "is_active": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AlertCreate": {
+        "type": "object",
+        "required": ["name", "conditions", "channels"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "description": { "type": "string", "maxLength": 1000 },
+          "conditions": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "enum": ["threshold", "trend", "pattern", "anomaly"] },
+              "metric": { "type": "string" },
+              "operator": { "type": "string" },
+              "value": { "type": "number" },
+              "window": { "type": "string" }
+            }
+          },
+          "channels": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": { "type": "string", "enum": ["email", "slack", "webhook", "in_app"] },
+                "to": { "type": "array", "items": { "type": "string" } },
+                "webhook_url": { "type": "string" }
+              }
+            }
+          },
+          "is_active": { "type": "boolean", "default": true },
+          "cooldown_seconds": { "type": "integer", "minimum": 60, "maximum": 86400, "default": 3600 },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "default": "normal" }
+        }
+      },
+      "AlertResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "conditions": { "type": "object" },
+          "channels": { "type": "array", "items": { "type": "object" } },
+          "is_active": { "type": "boolean" },
+          "cooldown_seconds": { "type": "integer" },
+          "priority": { "type": "string" },
+          "last_triggered_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReportGenerateRequest": {
+        "type": "object",
+        "required": ["report_type"],
+        "properties": {
+          "report_type": { "type": "string", "enum": ["security_risk", "model_cost", "platform_ops", "ai_risk_posture"] },
+          "date_start": { "type": "string", "format": "date-time" },
+          "date_end": { "type": "string", "format": "date-time" },
+          "output_format": { "type": "string", "enum": ["pdf", "docx", "both"], "default": "pdf" },
+          "sections": { "type": "array", "items": { "type": "string" } },
+          "environments": { "type": "array", "items": { "type": "string" } },
+          "models": { "type": "array", "items": { "type": "string" } },
+          "customization": {
+            "type": "object",
+            "properties": {
+              "company_name": { "type": "string", "maxLength": 200 },
+              "report_title": { "type": "string", "maxLength": 300 },
+              "primary_color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+              "accent_color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
             }
           }
+        }
+      },
+      "ReportResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "report_type": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
+          "output_format": { "type": "string" },
+          "date_start": { "type": "string", "format": "date-time" },
+          "date_end": { "type": "string", "format": "date-time" },
+          "file_size_bytes": { "type": "integer" },
+          "page_count": { "type": "integer" },
+          "error_message": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "OrganizationResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+          "settings": { "type": "object" },
+          "current_user_role": { "type": "string", "enum": ["admin", "member"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "MemberResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "user_id": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "avatar_url": { "type": "string" },
+          "role": { "type": "string", "enum": ["admin", "member"] },
+          "last_login_at": { "type": "string", "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "BenchmarkResultCreate": {
+        "type": "object",
+        "required": ["id", "model_name", "benchmark_type", "benchmark_parameters", "result", "tags"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "model_name": { "type": "string" },
+          "benchmark_type": { "type": "string" },
+          "benchmark_parameters": { "type": "object" },
+          "result": { "type": "object" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "BenchmarkResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "model_name": { "type": "string" },
+          "benchmark_type": { "type": "string" },
+          "benchmark_parameters": { "type": "object" },
+          "result": { "type": "object" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "is_eval": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ValidateKeyRequest": {
+        "type": "object",
+        "required": ["user_key"],
+        "properties": {
+          "user_key": { "type": "string", "description": "The user's Avaliar API key to validate" }
+        }
+      },
+      "ValidateKeyResponse": {
+        "type": "object",
+        "properties": {
+          "valid": { "type": "boolean" },
+          "organization_id": { "type": "string", "format": "uuid" },
+          "organization_plan": { "type": "string" },
+          "api_key_id": { "type": "string", "format": "uuid" },
+          "has_proxy_scope": { "type": "boolean" },
+          "rate_limit_remaining": { "type": "integer" },
+          "reason": { "type": "string" }
+        }
+      },
+      "ProxyRequestCreate": {
+        "type": "object",
+        "required": ["trace_id", "organization_id", "api_key_id", "provider", "model", "prompt", "timestamp"],
+        "properties": {
+          "trace_id": { "type": "string", "maxLength": 100 },
+          "organization_id": { "type": "string", "format": "uuid" },
+          "api_key_id": { "type": "string", "format": "uuid" },
+          "provider": { "type": "string", "maxLength": 50 },
+          "model": { "type": "string", "maxLength": 100 },
+          "prompt": { "type": "string" },
+          "environment": { "type": "string", "default": "production" },
+          "user_ip": { "type": "string", "maxLength": 50 },
+          "forwarded_to": { "type": "string", "maxLength": 200 },
+          "has_prompt_issues": { "type": "boolean", "default": false },
+          "prompt_issues_data": { "type": "array", "default": [] },
+          "request_metadata": { "type": "object", "default": {} },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProxyResponseCreate": {
+        "type": "object",
+        "required": ["trace_id", "response"],
+        "properties": {
+          "trace_id": { "type": "string", "maxLength": 100 },
+          "response": { "type": "string" },
+          "latency_ms": { "type": "integer" },
+          "proxy_overhead_ms": { "type": "integer" },
+          "tokens_prompt": { "type": "integer" },
+          "tokens_completion": { "type": "integer" },
+          "tokens_total": { "type": "integer" },
+          "cost_cents": { "type": "number" },
+          "response_metadata": { "type": "object", "default": {} }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/traces": {
+      "post": {
+        "operationId": "createSdkTrace",
+        "summary": "Create SDK Trace",
+        "description": "Store trace data from the Python SDK. This endpoint accepts trace events including inputs, outputs, timing, and optional detection results.",
+        "tags": ["Traces"],
+        "security": [{ "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SDKTraceCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Trace created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          },
+          "401": { "description": "Invalid or missing API key" },
+          "400": { "description": "Invalid request body" }
+        }
+      }
+    },
+    "/api/v1/traces/proxy-traces": {
+      "get": {
+        "operationId": "listProxyTraces",
+        "summary": "List Proxy Traces",
+        "description": "Get a paginated list of proxy traces for the current organization.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1, "minimum": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search by trace ID or model" },
+          { "name": "environment", "in": "query", "schema": { "type": "string" } },
+          { "name": "severity", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort_by", "in": "query", "schema": { "type": "string", "default": "timestamp", "enum": ["timestamp", "model", "environment", "latency", "cost"] } },
+          { "name": "sort_order", "in": "query", "schema": { "type": "string", "default": "desc", "enum": ["asc", "desc"] } },
+          { "name": "issue_types", "in": "query", "schema": { "type": "string" }, "description": "Comma-separated issue types" }
         ],
         "responses": {
           "200": {
-            "description": "Plant response",
+            "description": "Paginated list of proxy traces",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Plant"
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginationMeta" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/ProxyTraceResponse" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/traces/sdk-traces": {
+      "get": {
+        "operationId": "listSdkTraces",
+        "summary": "List SDK Traces",
+        "description": "Get a paginated list of SDK traces for the current organization.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1, "minimum": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "environment", "in": "query", "schema": { "type": "string" } },
+          { "name": "severity", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort_by", "in": "query", "schema": { "type": "string", "default": "timestamp" } },
+          { "name": "sort_order", "in": "query", "schema": { "type": "string", "default": "desc" } },
+          { "name": "issue_types", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of SDK traces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginationMeta" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/SDKTraceResponse" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/traces/proxy-traces/{trace_id}": {
+      "get": {
+        "operationId": "getProxyTrace",
+        "summary": "Get Proxy Trace",
+        "description": "Get full details for a specific proxy trace including prompt, response, and detected issues.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "trace_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Proxy trace details" },
+          "404": { "description": "Trace not found" }
+        }
+      }
+    },
+    "/api/v1/traces/sdk-traces/{trace_id}": {
+      "get": {
+        "operationId": "getSdkTrace",
+        "summary": "Get SDK Trace",
+        "description": "Get full details for a specific SDK trace.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "trace_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "SDK trace details" },
+          "404": { "description": "Trace not found" }
+        }
+      }
+    },
+    "/api/v1/traces/sdk-traces/{trace_id}/tree": {
+      "get": {
+        "operationId": "getSdkTraceTree",
+        "summary": "Get SDK Trace Tree",
+        "description": "Get the nested span tree for an SDK trace showing the full execution hierarchy.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "trace_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trace tree with nested spans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trace_id": { "type": "string" },
+                    "tree": { "type": "object" },
+                    "span_count": { "type": "integer" }
                   }
                 }
               }
             }
           },
-          "400": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "description": "Creates a new plant in the store",
-        "requestBody": {
-          "description": "Plant to add to the store",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NewPlant"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "plant response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Plant"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
+          "404": { "description": "Trace not found" }
         }
       }
     },
-    "/plants/{id}": {
-      "delete": {
-        "description": "Deletes a single plant based on the ID supplied",
+    "/api/v1/traces/{trace_id}/issues": {
+      "get": {
+        "operationId": "getTraceIssues",
+        "summary": "Get Trace Issues",
+        "description": "Get all detected issues for a specific trace.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "ID of plant to delete",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
+          { "name": "trace_id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "204": {
-            "description": "Plant deleted",
-            "content": {}
-          },
-          "400": {
-            "description": "unexpected error",
+          "200": {
+            "description": "List of issues for the trace",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "properties": {
+                    "trace_id": { "type": "string" },
+                    "issues": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Issue" }
+                    },
+                    "count": { "type": "integer" }
+                  }
                 }
               }
             }
           }
         }
       }
-    }
-  },
-  "webhooks": {
-    "/plant/webhook": {
+    },
+    "/api/v1/traces/stats": {
+      "get": {
+        "operationId": "getTraceStats",
+        "summary": "Get Trace Statistics",
+        "description": "Get aggregated statistics for SDK and/or proxy traces.",
+        "tags": ["Traces"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "trace_type", "in": "query", "schema": { "type": "string", "default": "all", "enum": ["sdk", "proxy", "all"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trace statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_traces": { "type": "integer" },
+                    "traces_with_issues": { "type": "integer" },
+                    "avg_latency_ms": { "type": "number" },
+                    "total_cost_usd": { "type": "number" },
+                    "trace_type": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/proxy/validate-key": {
       "post": {
-        "description": "Information about a new plant added to the store",
+        "operationId": "validateProxyKey",
+        "summary": "Validate Proxy API Key",
+        "description": "Validate a user's API key for proxy usage. Internal endpoint used by the proxy gateway.",
+        "tags": ["Proxy"],
+        "security": [{ "apiKeyAuth": [] }],
         "requestBody": {
-          "description": "Plant added to the store",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ValidateKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValidateKeyResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/proxy/proxy-trace/request": {
+      "post": {
+        "operationId": "storeProxyRequest",
+        "summary": "Store Proxy Request",
+        "description": "Store the incoming proxy request (Stage 1). Runs synchronous prompt injection detection.",
+        "tags": ["Proxy"],
+        "security": [{ "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProxyRequestCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Request stored. Response includes should_block flag.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/proxy/proxy-trace/response": {
+      "post": {
+        "operationId": "storeProxyResponse",
+        "summary": "Store Proxy Response",
+        "description": "Store the LLM response and queue for async detection (Stage 2).",
+        "tags": ["Proxy"],
+        "security": [{ "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProxyResponseCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Response stored and queued for detection",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "operationId": "listApiKeys",
+        "summary": "List API Keys",
+        "description": "List all API keys for the current organization.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "include_inactive", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/APIKeyResponse" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createApiKey",
+        "summary": "Create API Key",
+        "description": "Create a new API key. The full key value is only returned in this response.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/APIKeyCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created. Full key included in response.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIKeyResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys/{key_id}": {
+      "get": {
+        "operationId": "getApiKey",
+        "summary": "Get API Key",
+        "description": "Get details of a specific API key (without the full key value).",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "key_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "API key details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIKeyResponse" } } }
+          },
+          "404": { "description": "API key not found" }
+        }
+      },
+      "patch": {
+        "operationId": "updateApiKey",
+        "summary": "Update API Key",
+        "description": "Update an API key's name, scopes, or IP allowlist.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "key_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/NewPlant"
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "scopes": { "type": "array", "items": { "type": "string" } },
+                  "ip_allowlist": { "type": "array", "items": { "type": "string" } },
+                  "is_active": { "type": "boolean" }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Return a 200 status to indicate that the data was received successfully"
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Plant": {
-        "required": [
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "description": "The name of the plant",
-            "type": "string"
-          },
-          "tag": {
-            "description": "Tag to specify the type",
-            "type": "string"
+            "description": "API key updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIKeyResponse" } } }
           }
         }
       },
-      "NewPlant": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Plant"
-          },
-          {
-            "required": [
-              "id"
-            ],
-            "type": "object",
-            "properties": {
-              "id": {
-                "description": "Identification number of the plant",
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          }
-        ]
-      },
-      "Error": {
-        "required": [
-          "error",
-          "message"
+      "delete": {
+        "operationId": "revokeApiKey",
+        "summary": "Revoke API Key",
+        "description": "Permanently revoke an API key. Requires admin role.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "key_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
         ],
-        "type": "object",
-        "properties": {
-          "error": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "message": {
-            "type": "string"
+        "responses": {
+          "200": {
+            "description": "API key revoked",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } }
           }
         }
       }
     },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
+    "/api/v1/api-keys/{key_id}/rotate": {
+      "post": {
+        "operationId": "rotateApiKey",
+        "summary": "Rotate API Key",
+        "description": "Generate a new key value. The old key is immediately invalidated. Requires admin role.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "key_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "API key rotated. New full key in response.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/APIKeyResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys/{key_id}/usage": {
+      "get": {
+        "operationId": "getApiKeyUsage",
+        "summary": "Get API Key Usage",
+        "description": "Get usage statistics for a specific API key.",
+        "tags": ["API Keys"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "key_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "API key usage statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_usage_count": { "type": "integer" },
+                    "last_used_at": { "type": "string", "format": "date-time" },
+                    "remaining_requests_this_hour": { "type": "integer" },
+                    "is_active": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/overview": {
+      "get": {
+        "operationId": "getAnalyticsOverview",
+        "summary": "Get Dashboard Overview",
+        "description": "Get high-level analytics metrics including request counts, issue rates, latency, and costs.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "24h", "enum": ["24h", "7d", "30d", "90d"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard overview metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_requests": { "type": "integer" },
+                    "total_requests_change": { "type": "number" },
+                    "requests_with_issues": { "type": "integer" },
+                    "issue_rate": { "type": "number" },
+                    "issue_rate_change": { "type": "number" },
+                    "avg_latency_ms": { "type": "number" },
+                    "avg_latency_change": { "type": "number" },
+                    "total_cost_usd": { "type": "number" },
+                    "total_cost_change": { "type": "number" },
+                    "total_tokens": { "type": "integer" },
+                    "time_range": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/requests": {
+      "get": {
+        "operationId": "getAnalyticsRequests",
+        "summary": "Get Request Volume",
+        "description": "Get request volume data over time, broken down by total, with issues, and without issues.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "24h", "enum": ["24h", "7d", "30d", "90d"] } },
+          { "name": "interval", "in": "query", "schema": { "type": "string", "default": "hour", "enum": ["hour", "day"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request volume time series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timestamp": { "type": "string", "format": "date-time" },
+                          "total": { "type": "integer" },
+                          "with_issues": { "type": "integer" },
+                          "without_issues": { "type": "integer" }
+                        }
+                      }
+                    },
+                    "interval": { "type": "string" },
+                    "start_date": { "type": "string", "format": "date-time" },
+                    "end_date": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/costs": {
+      "get": {
+        "operationId": "getAnalyticsCosts",
+        "summary": "Get Cost Breakdown",
+        "description": "Get cost breakdown by model and provider.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "30d", "enum": ["24h", "7d", "30d", "90d"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cost breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_cost_usd": { "type": "number" },
+                    "by_model": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": { "type": "string" },
+                          "request_count": { "type": "integer" },
+                          "total_cost_usd": { "type": "number" },
+                          "total_tokens": { "type": "integer" }
+                        }
+                      }
+                    },
+                    "by_provider": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "provider": { "type": "string" },
+                          "request_count": { "type": "integer" },
+                          "total_cost_usd": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/issues": {
+      "get": {
+        "operationId": "getAnalyticsIssues",
+        "summary": "Get Issue Trends",
+        "description": "Get issue distribution by type and severity.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "7d", "enum": ["24h", "7d", "30d", "90d"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issue trends",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_issues": { "type": "integer" },
+                    "by_type": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string" },
+                          "count": { "type": "integer" },
+                          "avg_confidence": { "type": "number" }
+                        }
+                      }
+                    },
+                    "by_severity": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "severity": { "type": "string" },
+                          "count": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/models": {
+      "get": {
+        "operationId": "getAnalyticsModels",
+        "summary": "Get Model Usage",
+        "description": "Get usage statistics broken down by model.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "30d", "enum": ["24h", "7d", "30d", "90d"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model usage statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": { "type": "string" },
+                          "provider": { "type": "string" },
+                          "request_count": { "type": "integer" },
+                          "avg_latency_ms": { "type": "number" },
+                          "total_cost_usd": { "type": "number" },
+                          "total_tokens": { "type": "integer" },
+                          "issue_rate": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/latency": {
+      "get": {
+        "operationId": "getAnalyticsLatency",
+        "summary": "Get Latency Percentiles",
+        "description": "Get latency distribution with percentile breakdowns.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "time_range", "in": "query", "schema": { "type": "string", "default": "24h", "enum": ["24h", "7d", "30d", "90d"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latency percentiles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer" },
+                    "min": { "type": "integer" },
+                    "max": { "type": "integer" },
+                    "avg": { "type": "number" },
+                    "p50": { "type": "integer" },
+                    "p95": { "type": "integer" },
+                    "p99": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts": {
+      "get": {
+        "operationId": "listAlerts",
+        "summary": "List Alerts",
+        "description": "List all alert rules for the current organization.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "include_inactive", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of alerts",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AlertResponse" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAlert",
+        "summary": "Create Alert",
+        "description": "Create a new alert rule. Requires admin role.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AlertCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Alert created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts/stats": {
+      "get": {
+        "operationId": "getAlertStats",
+        "summary": "Get Alert Statistics",
+        "description": "Get aggregate statistics about alerts.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Alert statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_alerts": { "type": "integer" },
+                    "active_alerts": { "type": "integer" },
+                    "recently_triggered_alerts": { "type": "integer" },
+                    "total_triggers_24h": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts/{alert_id}": {
+      "get": {
+        "operationId": "getAlert",
+        "summary": "Get Alert",
+        "description": "Get details of a specific alert rule.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alert_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Alert details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertResponse" } } } },
+          "404": { "description": "Alert not found" }
+        }
+      },
+      "patch": {
+        "operationId": "updateAlert",
+        "summary": "Update Alert",
+        "description": "Update an alert rule. Requires admin role.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alert_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "conditions": { "type": "object" },
+                  "channels": { "type": "array", "items": { "type": "object" } },
+                  "is_active": { "type": "boolean" },
+                  "cooldown_seconds": { "type": "integer" },
+                  "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Alert updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertResponse" } } } }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAlert",
+        "summary": "Delete Alert",
+        "description": "Delete an alert rule. Requires admin role.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alert_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Alert deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } }
+        }
+      }
+    },
+    "/api/v1/alerts/{alert_id}/history": {
+      "get": {
+        "operationId": "getAlertHistory",
+        "summary": "Get Alert History",
+        "description": "Get the trigger history for a specific alert.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alert_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "include_resolved", "in": "query", "schema": { "type": "boolean", "default": true } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated alert trigger history" }
+        }
+      }
+    },
+    "/api/v1/alerts/{alert_id}/test": {
+      "post": {
+        "operationId": "testAlert",
+        "summary": "Test Alert",
+        "description": "Test an alert rule against current data to see if it would trigger.",
+        "tags": ["Alerts"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "alert_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alert_id": { "type": "string", "format": "uuid" },
+                    "alert_name": { "type": "string" },
+                    "triggered": { "type": "boolean" },
+                    "metric_value": { "type": "number" },
+                    "threshold": { "type": "number" },
+                    "matched_trace_count": { "type": "integer" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks/create": {
+      "post": {
+        "operationId": "createBenchmark",
+        "summary": "Create Benchmark Run",
+        "description": "Submit benchmark results from the Python SDK.",
+        "tags": ["Benchmarks"],
+        "security": [{ "apiKeyAuth": [] }],
+        "parameters": [
+          { "name": "is_eval", "in": "query", "schema": { "type": "boolean", "default": false } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["predictions", "result"],
+                "properties": {
+                  "predictions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["benchmark_result_id", "prediction"],
+                      "properties": {
+                        "benchmark_result_id": { "type": "string", "format": "uuid" },
+                        "prediction": { "type": "object" },
+                        "metadata": { "type": "object" }
+                      }
+                    }
+                  },
+                  "result": { "$ref": "#/components/schemas/BenchmarkResultCreate" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Benchmark created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks/results": {
+      "get": {
+        "operationId": "listBenchmarkResults",
+        "summary": "List Benchmark Results",
+        "description": "List benchmark results with optional filtering by model, type, and tags.",
+        "tags": ["Benchmarks"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "model_name", "in": "query", "schema": { "type": "string" } },
+          { "name": "benchmark_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "is_eval", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated benchmark results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginationMeta" },
+                    { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/BenchmarkResult" } } } }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/benchmarks/predictions": {
+      "get": {
+        "operationId": "listBenchmarkPredictions",
+        "summary": "List Benchmark Predictions",
+        "description": "List individual predictions for a specific benchmark run.",
+        "tags": ["Benchmarks"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "benchmark_result_id", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated predictions" }
+        }
+      }
+    },
+    "/api/v1/reports/generate": {
+      "post": {
+        "operationId": "generateReport",
+        "summary": "Generate Report",
+        "description": "Queue a new report for generation. Reports are generated asynchronously.",
+        "tags": ["Reports"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReportGenerateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Report queued for generation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "report_job_id": { "type": "string", "format": "uuid" },
+                    "status": { "type": "string", "default": "pending" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports": {
+      "get": {
+        "operationId": "listReports",
+        "summary": "List Reports",
+        "description": "List all generated reports for the organization.",
+        "tags": ["Reports"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "report_type", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "page_size", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of reports",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ReportResponse" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{report_id}": {
+      "get": {
+        "operationId": "getReport",
+        "summary": "Get Report",
+        "description": "Get the status and details of a specific report.",
+        "tags": ["Reports"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "report_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReportResponse" } } }
+          },
+          "404": { "description": "Report not found" }
+        }
+      }
+    },
+    "/api/v1/reports/{report_id}/download": {
+      "get": {
+        "operationId": "downloadReport",
+        "summary": "Download Report",
+        "description": "Download a completed report file (PDF or DOCX).",
+        "tags": ["Reports"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "report_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report file download",
+            "content": {
+              "application/pdf": { "schema": { "type": "string", "format": "binary" } },
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "404": { "description": "Report not found or not completed" }
+        }
+      }
+    },
+    "/api/v1/organizations/current": {
+      "get": {
+        "operationId": "getCurrentOrganization",
+        "summary": "Get Organization",
+        "description": "Get the current user's organization details.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Organization details",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationResponse" } } }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateOrganization",
+        "summary": "Update Organization",
+        "description": "Update organization name or settings. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+                  "settings": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrganizationResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/members": {
+      "get": {
+        "operationId": "listMembers",
+        "summary": "List Members",
+        "description": "List all members of the current organization.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of team members",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MemberResponse" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "inviteMember",
+        "summary": "Invite Member",
+        "description": "Invite a new team member by email. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "enum": ["admin", "member"], "default": "member" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Member invited",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/members/{member_id}": {
+      "patch": {
+        "operationId": "updateMember",
+        "summary": "Update Member Role",
+        "description": "Change a team member's role. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "member_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "role", "in": "query", "schema": { "type": "string", "enum": ["admin", "member"], "default": "member" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member updated",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MemberResponse" } } }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "removeMember",
+        "summary": "Remove Member",
+        "description": "Remove a team member from the organization. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "member_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member removed",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/invitations": {
+      "get": {
+        "operationId": "listInvitations",
+        "summary": "List Invitations",
+        "description": "List pending invitations. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of pending invitations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string", "format": "uuid" },
+                      "email": { "type": "string" },
+                      "role": { "type": "string" },
+                      "invited_by_name": { "type": "string" },
+                      "created_at": { "type": "string", "format": "date-time" },
+                      "expires_at": { "type": "string", "format": "date-time" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/invitations/{invitation_id}": {
+      "delete": {
+        "operationId": "cancelInvitation",
+        "summary": "Cancel Invitation",
+        "description": "Cancel a pending invitation. Requires admin role.",
+        "tags": ["Organization"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "invitation_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation cancelled",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } }
+          }
+        }
       }
     }
   }

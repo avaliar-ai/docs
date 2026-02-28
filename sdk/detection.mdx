@@ -1,0 +1,154 @@
+---
+title: "Detection"
+description: "Detect safety issues in your LLM applications"
+icon: "shield"
+---
+
+## Overview
+
+Avaliar detects **6 types of safety issues** in your LLM inputs and outputs. Enable detection on any traced function to automatically scan for prompt injection, jailbreaks, toxicity, PII leakage, bias, and hallucination.
+
+```python
+from avaliar import DetectorType
+```
+
+## DetectorType Enum
+
+| Detector | Value | Description |
+|----------|-------|-------------|
+| `PROMPT_INJECTION` | `prompt_injection` | Detects attempts to manipulate the LLM through crafted inputs |
+| `JAILBREAK` | `jailbreak` | Identifies attempts to bypass safety constraints |
+| `TOXICITY` | `toxicity` | Flags offensive, harmful, or inappropriate content |
+| `PII` | `pii` | Detects personally identifiable information (names, emails, SSNs, etc.) |
+| `BIAS` | `bias` | Identifies biased or discriminatory content |
+| `HALLUCINATION` | `hallucination` | Detects factually incorrect or fabricated information |
+
+## Enabling Detection
+
+Add detection to any `@traceable` function by setting `detection=True` and listing the detectors you want to run.
+
+```python
+from avaliar import traceable, DetectorType
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+    detection=True,
+    detectors=[
+        DetectorType.PROMPT_INJECTION,
+        DetectorType.JAILBREAK,
+        DetectorType.TOXICITY,
+        DetectorType.PII,
+        DetectorType.BIAS,
+        DetectorType.HALLUCINATION,
+    ],
+    detection_mode="local",
+)
+async def secure_generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+```
+
+## Detection Modes
+
+<Tabs>
+  <Tab title="Local Mode">
+    Detection runs **on your infrastructure** using an OpenAI-compatible model. This keeps your data within your environment and avoids sending content to external detection services.
+
+    ```python
+    @traceable(
+        "llm",
+        model="gpt-4o",
+        provider="openai",
+        detection=True,
+        detectors=[DetectorType.PII, DetectorType.TOXICITY],
+        detection_mode="local",
+    )
+    ```
+
+    <Warning>
+      Local mode requires the `OPENAI_API_KEY` environment variable to be set. The SDK uses an OpenAI model to perform detection analysis locally.
+    </Warning>
+  </Tab>
+  <Tab title="Cloud Mode">
+    Detection runs on **Avaliar's cloud infrastructure**. Your content is sent to the Avaliar API for analysis. This is the simplest option and does not require any additional API keys.
+
+    ```python
+    @traceable(
+        "llm",
+        model="gpt-4o",
+        provider="openai",
+        detection=True,
+        detectors=[DetectorType.PII, DetectorType.TOXICITY],
+        detection_mode="cloud",
+    )
+    ```
+  </Tab>
+</Tabs>
+
+## Detection Results
+
+When detection is enabled, the trace includes a detection result object with the following structure:
+
+```python
+{
+    "has_issues": True,
+    "max_severity": "high",
+    "issues": [
+        {
+            "type": "pii",
+            "severity": "high",
+            "confidence": 0.95,
+            "message": "Email address detected in output",
+            "excerpt": "Contact me at john@example.com",
+            "suggestion": "Redact or mask the email address before returning to the user",
+            "detector_name": "pii"
+        }
+    ]
+}
+```
+
+### Result Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `has_issues` | `bool` | Whether any safety issues were detected |
+| `max_severity` | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | Highest severity among all detected issues |
+| `issues` | `list[Issue]` | List of individual issues found |
+
+### Issue Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `str` | The type of issue (matches `DetectorType` values) |
+| `severity` | `"low"` \| `"medium"` \| `"high"` \| `"critical"` | How severe the issue is |
+| `confidence` | `float` | Confidence score from 0 to 1 |
+| `message` | `str` | Human-readable description of the issue |
+| `excerpt` | `str` | The portion of text that triggered the detection |
+| `suggestion` | `str` | Recommended action to resolve the issue |
+| `detector_name` | `str` | Name of the detector that found the issue |
+
+## Choosing Detectors for Your Use Case
+
+Not every application needs all six detectors. Select the detectors that match your risk profile:
+
+| Use Case | Recommended Detectors |
+|----------|----------------------|
+| Customer-facing chatbot | `PROMPT_INJECTION`, `JAILBREAK`, `TOXICITY`, `PII` |
+| Internal knowledge assistant | `HALLUCINATION`, `PII` |
+| Content generation pipeline | `TOXICITY`, `BIAS`, `HALLUCINATION` |
+| Code generation tool | `PROMPT_INJECTION`, `JAILBREAK` |
+| Healthcare / legal applications | `HALLUCINATION`, `PII`, `BIAS` |
+| Children's education platform | `TOXICITY`, `BIAS`, `PII`, `JAILBREAK` |
+
+<Tip>
+  Start with the detectors most relevant to your use case and expand as needed. Each additional detector adds a small amount of latency to the detection pass.
+</Tip>
+
+<Info>
+  Detection results are visible in the **Traces** view on the [Avaliar dashboard](https://app.avaliar.ai). You can filter traces by issue type, severity, and detector to quickly find problematic interactions.
+</Info>

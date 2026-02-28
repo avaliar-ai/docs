@@ -8,61 +8,168 @@
     "dark": "#83029b"
   },
   "favicon": "/favicon.svg",
+  "openapi": ["/api-reference/openapi.json"],
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "concepts"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Python SDK",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "sdk/installation",
+              "sdk/traceable",
+              "sdk/detection",
+              "sdk/base-llm",
+              "sdk/error-handling"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Proxy Integration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "proxy/overview",
+              "proxy/setup",
+              "proxy/how-it-works"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Detection",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "detection/overview",
+              "detection/detectors",
+              "detection/modes"
+            ]
+          },
+          {
+            "group": "Benchmarks & Evals",
+            "pages": [
+              "benchmarks/overview",
+              "benchmarks/running",
+              "benchmarks/available",
+              "benchmarks/evals"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/traces",
+              "platform/analytics",
+              "platform/alerts",
+              "platform/reports",
+              "platform/team",
+              "platform/api-keys"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Traces",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/traces/create-sdk-trace",
+              "api-reference/traces/list-proxy-traces",
+              "api-reference/traces/list-sdk-traces",
+              "api-reference/traces/get-proxy-trace",
+              "api-reference/traces/get-sdk-trace",
+              "api-reference/traces/get-trace-tree",
+              "api-reference/traces/get-trace-issues",
+              "api-reference/traces/get-stats"
+            ]
+          },
+          {
+            "group": "Proxy",
+            "pages": [
+              "api-reference/proxy/validate-key",
+              "api-reference/proxy/store-request",
+              "api-reference/proxy/store-response"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "pages": [
+              "api-reference/api-keys/list",
+              "api-reference/api-keys/create",
+              "api-reference/api-keys/get",
+              "api-reference/api-keys/update",
+              "api-reference/api-keys/revoke",
+              "api-reference/api-keys/rotate",
+              "api-reference/api-keys/usage"
+            ]
+          },
+          {
+            "group": "Analytics",
+            "pages": [
+              "api-reference/analytics/overview",
+              "api-reference/analytics/requests",
+              "api-reference/analytics/costs",
+              "api-reference/analytics/issues",
+              "api-reference/analytics/models",
+              "api-reference/analytics/latency"
+            ]
+          },
+          {
+            "group": "Alerts",
+            "pages": [
+              "api-reference/alerts/list",
+              "api-reference/alerts/create",
+              "api-reference/alerts/get",
+              "api-reference/alerts/update",
+              "api-reference/alerts/delete",
+              "api-reference/alerts/stats",
+              "api-reference/alerts/history",
+              "api-reference/alerts/test"
+            ]
+          },
+          {
+            "group": "Benchmarks",
+            "pages": [
+              "api-reference/benchmarks/create",
+              "api-reference/benchmarks/list-results",
+              "api-reference/benchmarks/list-predictions"
+            ]
+          },
+          {
+            "group": "Reports",
+            "pages": [
+              "api-reference/reports/generate",
+              "api-reference/reports/list",
+              "api-reference/reports/get",
+              "api-reference/reports/download"
+            ]
+          },
+          {
+            "group": "Organization",
+            "pages": [
+              "api-reference/organization/get",
+              "api-reference/organization/update",
+              "api-reference/organization/list-members",
+              "api-reference/organization/invite-member",
+              "api-reference/organization/update-member",
+              "api-reference/organization/remove-member",
+              "api-reference/organization/list-invitations",
+              "api-reference/organization/cancel-invitation"
             ]
           }
         ]
@@ -71,14 +178,14 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/avaliar-ai",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Community",
+          "href": "https://github.com/avaliar-ai/docs/discussions",
+          "icon": "comments"
         }
       ]
     }
@@ -91,32 +198,29 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@avaliar.ai"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.avaliar.ai"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/avaliar-ai",
+      "x": "https://x.com/avaliar_ai",
+      "linkedin": "https://linkedin.com/company/avaliar-ai"
     }
   }
 }

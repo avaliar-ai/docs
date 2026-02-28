@@ -1,0 +1,141 @@
+---
+title: "Alerts"
+description: "Get notified when safety issues are detected"
+icon: "bell"
+---
+
+## Overview
+
+Alerts notify your team when your LLM applications exhibit safety or performance issues. Configure alert rules that specify what to watch for, how sensitive the trigger should be, and where to send notifications.
+
+Manage alerts at [app.avaliar.ai/alerts](https://app.avaliar.ai/alerts).
+
+## Alert Conditions
+
+Each alert rule uses one of four condition types to decide when to fire.
+
+<AccordionGroup>
+  <Accordion title="Threshold" icon="arrow-up-right-dots">
+    Trigger when a metric exceeds a specific value. For example:
+
+    - Issue rate exceeds 10%
+    - Average latency exceeds 2000ms
+    - Cost per hour exceeds $50
+
+    Threshold alerts are the simplest and most commonly used condition type.
+  </Accordion>
+
+  <Accordion title="Trend" icon="arrow-trend-up">
+    Trigger when a metric shows an increasing pattern over a time window. Trend alerts detect gradual degradation that a single threshold might miss, such as a steadily rising issue rate over several hours.
+  </Accordion>
+
+  <Accordion title="Pattern" icon="braille">
+    Trigger when a specific issue type pattern is detected. For example:
+
+    - More than 5 prompt injection attempts in 10 minutes
+    - Repeated PII detections from the same model
+    - Consecutive jailbreak attempts within a short window
+
+    Pattern alerts are useful for detecting targeted attacks or systematic issues.
+  </Accordion>
+
+  <Accordion title="Anomaly" icon="chart-scatter">
+    Trigger on statistically unusual behavior compared to your baseline. Anomaly detection learns from your historical data and flags deviations that do not match expected patterns, without requiring you to define explicit thresholds.
+  </Accordion>
+</AccordionGroup>
+
+## Notification Channels
+
+When an alert fires, notifications are sent to one or more channels.
+
+| Channel | Description |
+|---------|-------------|
+| **Email** | Send an email notification to one or more team members |
+| **Slack** | Post a message to a Slack channel via a webhook URL |
+| **Webhook** | Send an HTTP POST request to any URL with the alert payload |
+| **In-app** | Show a notification in the Avaliar dashboard |
+
+<Tabs>
+  <Tab title="Email">
+    Enter the email addresses of team members who should receive the alert. Each recipient receives an email with the alert details, including the condition that triggered it and a link to the relevant traces.
+  </Tab>
+  <Tab title="Slack">
+    Provide a Slack incoming webhook URL. When the alert fires, Avaliar posts a formatted message to the configured channel with the alert summary, severity, and a link to the dashboard.
+  </Tab>
+  <Tab title="Webhook">
+    Provide any HTTP endpoint URL. Avaliar sends a `POST` request with a JSON payload containing:
+
+    ```json
+    {
+      "alert_id": "alt_abc123",
+      "alert_name": "High issue rate",
+      "condition_type": "threshold",
+      "priority": "high",
+      "triggered_at": "2025-01-15T10:30:00Z",
+      "details": {
+        "metric": "issue_rate",
+        "current_value": 0.15,
+        "threshold": 0.10
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="In-app">
+    A notification badge appears in the Avaliar dashboard. In-app notifications are always enabled in addition to any external channels you configure.
+  </Tab>
+</Tabs>
+
+## Cooldown Period
+
+The cooldown period is the minimum time between consecutive triggers of the same alert. This prevents notification fatigue during sustained incidents.
+
+| Setting | Range |
+|---------|-------|
+| **Minimum** | 60 seconds |
+| **Maximum** | 24 hours |
+| **Default** | 1 hour |
+
+<Info>
+  During the cooldown window, the alert condition is still evaluated but no additional notifications are sent. The alert fires again only after the cooldown expires and the condition is still met.
+</Info>
+
+## Priority Levels
+
+Each alert rule is assigned a priority that indicates its urgency:
+
+| Priority | Use Case |
+|----------|----------|
+| **Low** | Informational. Useful for tracking trends that do not require immediate action. |
+| **Normal** | Standard priority for most operational alerts. |
+| **High** | Important issues that should be investigated promptly. |
+| **Critical** | Urgent. Indicates an active safety incident that demands immediate attention. |
+
+## Alert History
+
+The alert history view shows all past triggers, including:
+
+- The timestamp of each trigger
+- The condition and metric values that caused the trigger
+- The notification channels that were used
+- Resolution status and notes
+
+Admins can mark alerts as **resolved** and add resolution notes to document the incident and the actions taken.
+
+## Testing Alerts
+
+<Tip>
+  Use the **Test** button on any alert rule to see if it would trigger based on your current data. This lets you validate your configuration without waiting for a real incident.
+</Tip>
+
+Testing evaluates the alert condition against recent trace data and returns a result showing whether the alert would fire and why.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Reports" icon="file-chart-column" href="/platform/reports">
+    Generate compliance reports that include alert history and incident summaries.
+  </Card>
+  <Card title="Team Management" icon="users" href="/platform/team">
+    Manage who receives alerts and their roles in your organization.
+  </Card>
+</CardGroup>

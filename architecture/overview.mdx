@@ -1,0 +1,177 @@
+---
+title: "Architecture"
+description: "Understand how Avaliar processes and analyzes your LLM traces"
+icon: "sitemap"
+---
+
+## Overview
+
+Avaliar uses an event-sourced architecture to capture, store, and analyze LLM traces. Every interaction is recorded as a series of immutable events that are then materialized into queryable views for the dashboard, analytics, and alerts.
+
+This page describes the full data flow from your application to the Avaliar dashboard, the database architecture, authentication model, and async processing pipeline.
+
+## Data Flow
+
+Traces enter Avaliar through two paths depending on your integration method. Both paths converge on the same detection pipeline and materialized views.
+
+<Tabs>
+  <Tab title="SDK Path">
+    <Steps>
+      <Step title="Your App Calls a @traceable Function">
+        A function decorated with `@traceable` executes in your application. The SDK captures inputs, outputs, timing, token counts, and metadata automatically.
+      </Step>
+      <Step title="Trace Posted to Avaliar">
+        The SDK submits the trace to `POST /api/v1/traces` on a background thread. This ensures tracing does not add latency to your application.
+      </Step>
+      <Step title="Request and Response Stored">
+        The backend stores the request data in the `sdk_requests` table and the response data in the `sdk_responses` table. These are immutable event records.
+      </Step>
+      <Step title="Detection Job Queued">
+        If detection is enabled (cloud mode), a detection job is queued to Redis for asynchronous processing.
+      </Step>
+      <Step title="Detection Worker Processes the Trace">
+        A background worker picks up the job from the Redis queue and runs all configured detectors on the trace. Detected issues are stored with their type, severity, and confidence score.
+      </Step>
+      <Step title="Materialized View Updated">
+        The `sdk_traces` materialized view is updated, combining the request, response, and detection results into a single queryable record for the dashboard.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Proxy Path">
+    <Steps>
+      <Step title="Request Sent Through Avaliar Proxy">
+        Your application sends an LLM request to the Avaliar Proxy instead of directly to the LLM provider.
+      </Step>
+      <Step title="API Key Validated and Request Stored">
+        The proxy validates the API key (checking scope, plan, and rate limits) and stores the incoming request in the `proxy_requests` table.
+      </Step>
+      <Step title="Synchronous Prompt Injection Check">
+        The proxy runs prompt injection detection on the input before forwarding. If an injection is detected, the request is blocked and never reaches the LLM provider.
+      </Step>
+      <Step title="Request Forwarded to LLM Provider">
+        If the input is clean, the proxy forwards the request to the target LLM provider and captures the response.
+      </Step>
+      <Step title="Response Stored">
+        The full response, including latency, token counts, and cost, is stored in the `proxy_responses` table.
+      </Step>
+      <Step title="Detection Job Queued">
+        A detection job is queued to Redis for background processing of all remaining detectors (jailbreak, toxicity, PII, bias, hallucination).
+      </Step>
+      <Step title="Background Worker Runs Detectors">
+        A worker processes the job, runs all detectors, and stores any detected issues.
+      </Step>
+      <Step title="Materialized View Updated">
+        The `proxy_traces` materialized view is updated, combining the request, response, and detection results into a single queryable record.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Database Architecture
+
+Avaliar uses an event-sourced model where raw events are stored in immutable tables and materialized views combine them for fast queries.
+
+### Event Tables
+
+These tables store the raw, immutable events as they arrive:
+
+| Table | Description |
+|-------|-------------|
+| `sdk_requests` | Incoming requests captured by the Python SDK |
+| `sdk_responses` | Responses captured by the Python SDK, including outputs, timing, and tokens |
+| `proxy_requests` | Incoming requests received by the Avaliar Proxy |
+| `proxy_responses` | Responses from LLM providers, captured by the Proxy |
+
+### Materialized Views
+
+Materialized views combine event data into denormalized records optimized for dashboard queries:
+
+| View | Description |
+|------|-------------|
+| `sdk_traces` | Joins `sdk_requests` + `sdk_responses` + detected issues into a single trace record |
+| `proxy_traces` | Joins `proxy_requests` + `proxy_responses` + detected issues into a single trace record |
+
+<Info>
+  Materialized views are rebuilt after each detection job completes. This means the Trace Explorer always shows the latest detection results without requiring manual refreshes.
+</Info>
+
+### Supporting Tables
+
+| Table | Description |
+|-------|-------------|
+| `organizations` | Organization profiles and plan information |
+| `api_keys` | API key metadata, scopes, and usage tracking |
+| `alerts` | Alert rule definitions and configuration |
+| `alert_history` | Past alert triggers and resolution records |
+| `benchmark_results` | Results from benchmark and eval runs |
+| `report_jobs` | Report generation jobs and their status |
+
+## Authentication
+
+Avaliar uses two authentication mechanisms, each designed for a different integration surface.
+
+| Method | Use Case | Header |
+|--------|----------|--------|
+| **Clerk JWT** | Dashboard and frontend API endpoints | `Authorization: Bearer <jwt>` |
+| **API Key** | SDK and Proxy integration endpoints | `X-API-Key: <key>` |
+
+### Clerk JWT
+
+All dashboard and management endpoints (analytics, alerts, reports, team, settings) are authenticated via Clerk JWT tokens. When a user logs in at [app.avaliar.ai](https://app.avaliar.ai), Clerk issues a signed JWT that is included in every request to the backend.
+
+### API Keys
+
+SDK and Proxy endpoints use API keys for authentication. The key is sent in the `X-API-Key` header. The backend validates the key, checks its scopes and rate limits, and associates the request with the correct organization.
+
+```bash
+# SDK trace submission
+curl -X POST https://api.avaliar.ai/v1/traces \
+  -H "X-API-Key: avl_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{ ... }'
+```
+
+## Async Processing
+
+Avaliar processes detection asynchronously to keep trace ingestion fast and non-blocking.
+
+```
+Trace arrives → Stored in event table → Job queued to Redis
+                                             │
+                                    Background worker picks up job
+                                             │
+                                    Runs all configured detectors
+                                             │
+                                    Issues stored in database
+                                             │
+                                    Materialized view refreshed
+                                             │
+                                    Alert rules evaluated
+                                             │
+                                    Notifications dispatched (if triggered)
+```
+
+<AccordionGroup>
+  <Accordion title="Redis Queue" icon="layer-group">
+    Detection jobs are queued in Redis after trace storage. Each job contains the trace ID and the list of detectors to run. Redis provides reliable delivery with at-least-once semantics.
+  </Accordion>
+
+  <Accordion title="Background Workers" icon="gears">
+    Worker processes consume jobs from the Redis queue, run the detection pipeline, and store results. Workers scale horizontally -- adding more workers increases detection throughput without changing the architecture.
+  </Accordion>
+
+  <Accordion title="Alert Evaluation" icon="bell">
+    After detection results are stored, the system evaluates all active alert rules against the new findings. If an alert condition is met and the cooldown period has elapsed, notifications are dispatched to the configured channels.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Detection Overview" icon="radar" href="/detection/overview">
+    Learn how the six built-in detectors analyze your traces.
+  </Card>
+  <Card title="API Keys" icon="key" href="/platform/api-keys">
+    Create and manage the API keys that authenticate your integrations.
+  </Card>
+</CardGroup>

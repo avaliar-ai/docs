@@ -1,0 +1,146 @@
+---
+title: "API Keys"
+description: "Create and manage API keys for SDK and Proxy integration"
+icon: "key"
+---
+
+## Overview
+
+API keys authenticate your SDK and Proxy integrations with the Avaliar backend. Each key is scoped to your organization and can be configured with specific permissions, environments, and IP restrictions.
+
+Manage API keys at [app.avaliar.ai/settings/api-keys](https://app.avaliar.ai/settings/api-keys).
+
+## Key Scopes
+
+Every API key has one or more scopes that determine how it can be used.
+
+| Scope | Description |
+|-------|-------------|
+| **sdk** | Send traces from the [Python SDK](/sdk/installation). Required for `@traceable` and detection calls. |
+| **proxy** | Route LLM traffic through the [Avaliar Proxy](/proxy/overview) gateway. Requires an active **Pro plan**. |
+
+A key can have both scopes if you use a single key for both SDK and Proxy integrations.
+
+## Creating a Key
+
+<Steps>
+  <Step title="Navigate to API Keys">
+    Go to [app.avaliar.ai/settings/api-keys](https://app.avaliar.ai/settings/api-keys) and click **Create Key**.
+  </Step>
+  <Step title="Configure the Key">
+    Provide the following details:
+
+    | Field | Description |
+    |-------|-------------|
+    | **Name** | A descriptive name (e.g., `production-sdk`, `staging-proxy`) |
+    | **Scopes** | Select `sdk`, `proxy`, or both |
+    | **Environment** | Choose `development`, `staging`, or `production` |
+  </Step>
+  <Step title="Copy the Key">
+    After creation, the full API key is displayed once. Copy it and store it securely.
+  </Step>
+</Steps>
+
+<Warning>
+  Store your API key securely. The full key is only displayed once at creation time. If you lose it, you will need to rotate or create a new key.
+</Warning>
+
+## Key Format
+
+API keys use the following format:
+
+```
+avl_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+- Keys start with the `avl_` prefix
+- Only the first 8 characters of the key are stored for identification purposes
+- The full key is shown only once at creation time
+
+## Rotating Keys
+
+Rotating a key generates a new key value while keeping the same name, scopes, environment, and configuration. This is useful for scheduled key rotation or when a key may have been compromised.
+
+<Steps>
+  <Step title="Find the Key">
+    Locate the key you want to rotate in the API Keys list.
+  </Step>
+  <Step title="Rotate">
+    Click **Rotate** and confirm. A new key value is generated immediately.
+  </Step>
+  <Step title="Update Your Integration">
+    Replace the old key with the new one in your application configuration. The old key is invalidated immediately.
+  </Step>
+</Steps>
+
+<Info>
+  Rotation invalidates the previous key value instantly. Make sure you update your application before discarding the new key.
+</Info>
+
+## Revoking Keys
+
+Revoking a key permanently deactivates it. Revoked keys cannot be reactivated or rotated. Any requests using a revoked key will receive a `401 Unauthorized` response.
+
+To revoke a key, click **Revoke** next to the key in the API Keys list and confirm.
+
+## Usage Tracking
+
+The API Keys page shows usage information for each key:
+
+| Metric | Description |
+|--------|-------------|
+| **Usage count** | Total number of API calls made with this key |
+| **Last used** | Timestamp of the most recent API call |
+
+Use this information to identify unused keys and clean up stale credentials.
+
+## IP Allowlist
+
+For additional security, you can restrict an API key to specific IP addresses. When an IP allowlist is configured, requests from any IP not on the list are rejected.
+
+<Tabs>
+  <Tab title="Single IP">
+    ```
+    203.0.113.42
+    ```
+  </Tab>
+  <Tab title="Multiple IPs">
+    ```
+    203.0.113.42
+    203.0.113.43
+    198.51.100.0
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Use IP allowlists in production to prevent unauthorized use of your API keys, even if the key value is accidentally exposed.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Separate Keys per Environment" icon="layer-group">
+    Create distinct keys for development, staging, and production. This keeps your environments isolated and makes it easy to revoke access to a single environment without affecting others.
+  </Card>
+  <Card title="Rotate Keys Regularly" icon="rotate">
+    Establish a key rotation schedule (e.g., every 90 days) to limit the window of exposure if a key is compromised.
+  </Card>
+  <Card title="Use IP Allowlists in Production" icon="shield">
+    Restrict production keys to known IP addresses. This adds a second layer of protection beyond the key itself.
+  </Card>
+  <Card title="Monitor Usage" icon="chart-simple">
+    Review key usage counts and last-used timestamps regularly. Revoke keys that are no longer in use.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Installation" icon="download" href="/sdk/installation">
+    Use your API key to configure the Python SDK.
+  </Card>
+  <Card title="Proxy Setup" icon="server" href="/proxy/setup">
+    Use your API key to configure the Avaliar Proxy gateway.
+  </Card>
+</CardGroup>

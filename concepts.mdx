@@ -1,0 +1,110 @@
+---
+title: "Core Concepts"
+description: "Understand the key building blocks of Avaliar"
+icon: "lightbulb"
+---
+
+Avaliar is built around a small set of core primitives. Understanding these concepts will help you get the most out of the platform.
+
+<AccordionGroup>
+  <Accordion title="Traces" icon="route">
+    A **trace** represents a single LLM interaction from input to output. Traces are the fundamental unit of observability in Avaliar. Every function decorated with `@traceable` creates a trace that captures the full request-response lifecycle, including the prompt, completion, model, provider, latency, token counts, and any detected issues.
+
+    Traces are stored in your organization's workspace and are visible in the [Traces dashboard](https://app.avaliar.ai/traces). You can filter, search, and inspect traces to understand how your LLM application behaves in production.
+  </Accordion>
+
+  <Accordion title="Spans" icon="diagram-nested">
+    **Spans** are individual operations within a trace. A trace can contain multiple nested spans in a parent-child hierarchy, allowing you to see exactly how a complex LLM pipeline executes.
+
+    Avaliar supports four span types:
+
+    | Type | Description |
+    |------|-------------|
+    | `llm` | A direct call to a language model. |
+    | `tool` | A tool or function call made by the model. |
+    | `agent` | An autonomous agent step that may contain child spans. |
+    | `generic` | Any other operation you want to track. |
+
+    Nesting spans lets you trace multi-step workflows such as retrieval-augmented generation (RAG), agent loops, or chain-of-thought pipelines.
+  </Accordion>
+
+  <Accordion title="Detection" icon="shield-halved">
+    **Detection** is the automated analysis of traces to find safety issues. Avaliar provides six built-in detector types:
+
+    | Detector | What It Finds |
+    |----------|---------------|
+    | **Prompt Injection** | Attempts to override system instructions via user input. |
+    | **Jailbreak** | Techniques designed to bypass model safety guardrails. |
+    | **Toxicity** | Harmful, abusive, or offensive language in inputs or outputs. |
+    | **PII** | Personally identifiable information such as emails, phone numbers, and SSNs. |
+    | **Bias** | Stereotyping, demographic bias, or unfair treatment in model outputs. |
+    | **Hallucination** | Factually incorrect or fabricated information in model responses. |
+
+    Detection runs in one of two modes:
+
+    - **Local** -- Detectors execute on your own infrastructure. Data never leaves your environment.
+    - **Cloud** -- Detectors execute on Avaliar's servers for higher throughput and zero operational overhead.
+  </Accordion>
+
+  <Accordion title="Issues" icon="circle-exclamation">
+    An **issue** is a problem found by a detector during trace analysis. Each issue contains:
+
+    - **Type** -- The detector that found it (e.g., `toxicity`, `pii`).
+    - **Severity** -- One of `low`, `medium`, `high`, or `critical`.
+    - **Confidence** -- A score between 0 and 1 indicating how certain the detector is.
+    - **Description** -- A human-readable explanation of the finding.
+    - **Excerpt** -- The specific portion of the input or output that triggered the detection.
+
+    Issues are attached to their parent trace and are visible in both the trace detail view and the aggregated Issues dashboard.
+  </Accordion>
+
+  <Accordion title="Benchmarks" icon="chart-bar">
+    **Benchmarks** are standardized tests that evaluate an LLM's capabilities across well-known academic datasets. Avaliar supports the following benchmark suites:
+
+    | Benchmark | Measures |
+    |-----------|----------|
+    | **MMLU** | Broad multi-task knowledge across 57 subjects. |
+    | **DROP** | Discrete reasoning over paragraphs (reading comprehension). |
+    | **HellaSwag** | Commonsense natural language inference and sentence completion. |
+    | **TruthfulQA** | Tendency to generate truthful vs. imitative-falsehood answers. |
+    | **BigBenchHard** | Challenging tasks from the BIG-Bench suite requiring multi-step reasoning. |
+    | **HumanEval** | Functional code generation correctness. |
+
+    Run benchmarks on-demand or on a schedule to track capability changes across model versions and fine-tunes.
+  </Accordion>
+
+  <Accordion title="Evals" icon="flask-vial">
+    **Evals** are specialized evaluations focused on safety and bias rather than general capability. Avaliar supports:
+
+    | Eval | Focus |
+    |------|-------|
+    | **BBQ** | Bias Benchmark for QA -- measures social bias across nine categories. |
+    | **BOLD** | Bias in Open-Ended Language Generation -- fairness in text generation. |
+    | **HEx-PHI** | Harmful and explicit prompt-harm identification. |
+    | **RealToxicityPrompts** | Likelihood of generating toxic continuations from neutral prompts. |
+
+    Evals complement benchmarks by testing the dimensions that matter most for responsible AI deployment.
+  </Accordion>
+
+  <Accordion title="Alerts" icon="bell">
+    **Alerts** are automated notifications triggered when issues meet conditions you define. Each alert rule specifies:
+
+    - **Condition type** -- `threshold` (count exceeds N), `trend` (rate increasing), `pattern` (repeated issue type), or `anomaly` (statistical outlier).
+    - **Channels** -- Where to send the notification: email, Slack, or webhook.
+
+    You can scope alerts to specific detectors, severity levels, models, or environments. Alert history is stored and available in the [Alerts dashboard](https://app.avaliar.ai/alerts) for auditing.
+  </Accordion>
+
+  <Accordion title="Reports" icon="file-chart-column">
+    **Reports** are generated documents that aggregate trace data, issues, and benchmark results into a structured format for compliance and stakeholder review. Avaliar supports four report types:
+
+    | Report | Purpose |
+    |--------|---------|
+    | **Security Risk** | Summarizes detected threats, attack patterns, and mitigation status. |
+    | **Model Cost** | Breaks down token usage, latency, and spend by model and provider. |
+    | **Platform Ops** | Covers system health, uptime, trace volume, and error rates. |
+    | **AI Risk Posture** | Provides an overall safety score combining detection, benchmark, and eval results. |
+
+    Reports can be generated on-demand or scheduled, and exported as PDF or JSON.
+  </Accordion>
+</AccordionGroup>

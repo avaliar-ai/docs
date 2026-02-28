@@ -1,0 +1,80 @@
+---
+title: "Detection Overview"
+description: "Automated safety analysis for your LLM applications"
+icon: "radar"
+---
+
+## What is Detection?
+
+Avaliar's detection system automatically analyzes LLM inputs and outputs to identify safety issues. Every trace — whether captured via the SDK or the Proxy — can be scanned by a suite of detectors that flag problems like prompt injection, toxicity, PII leakage, bias, jailbreak attempts, and hallucinations.
+
+Detection is the core of Avaliar's safety layer. It turns raw traces into actionable findings with severity classifications and, when configured, triggers real-time alerts.
+
+## Two Paths to Detection
+
+There are two ways detection runs, depending on how you integrate with Avaliar:
+
+### SDK Detection
+
+When you use the `@traceable` decorator from the Avaliar Python SDK, detection runs on each traced function call. You choose whether detection runs **locally** (on your infrastructure) or in the **cloud** (on Avaliar's backend).
+
+```python
+from avaliar import traceable
+
+@traceable(detection_mode="local")  # or "cloud"
+def ask_llm(prompt: str) -> str:
+    ...
+```
+
+### Proxy Detection
+
+When you route LLM calls through the [Avaliar Proxy](/proxy/overview), detection is automatic. Prompt injection detection runs synchronously (blocking harmful inputs), while all other detectors run asynchronously on Avaliar's backend.
+
+No code changes or configuration are needed — the proxy handles everything.
+
+## Detection Pipeline
+
+Every trace follows the same pipeline:
+
+```
+Input (prompt + response)
+  → Detectors (6 types)
+    → Issues identified
+      → Severity classification (LOW → CRITICAL)
+        → Alerts triggered (if configured)
+```
+
+## Detector Types
+
+Avaliar includes six built-in detector types:
+
+1. **Prompt Injection** — Detects attempts to manipulate the LLM through crafted inputs
+2. **Jailbreak** — Identifies attempts to bypass LLM safety constraints
+3. **Toxicity** — Flags offensive, harmful, or inappropriate content
+4. **PII Detection** — Finds personally identifiable information in inputs or outputs
+5. **Bias** — Identifies biased or discriminatory content
+6. **Hallucination** — Detects factually incorrect or fabricated information
+
+See [Detector Types](/detection/detectors) for detailed descriptions and examples of each.
+
+## Severity Levels
+
+Every detected issue is assigned a severity level:
+
+| Severity     | Description                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| **LOW**      | Minor issues that may warrant review but do not pose an immediate risk. Informational findings.        |
+| **MEDIUM**   | Notable issues that should be addressed. May indicate a pattern that could escalate.                   |
+| **HIGH**     | Significant safety concerns that require prompt attention. Active risk to users or data.               |
+| **CRITICAL** | Severe issues demanding immediate action. Active exploitation, data exposure, or dangerous outputs.    |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Detector Types" icon="magnifying-glass" href="/detection/detectors">
+    Learn about each of the 6 detector types with examples and severity guidance.
+  </Card>
+  <Card title="Detection Modes" icon="toggle-on" href="/detection/modes">
+    Choose between local and cloud detection for SDK-based integration.
+  </Card>
+</CardGroup>

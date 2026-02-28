@@ -1,55 +1,44 @@
-# Mintlify Starter Kit
+# Avaliar AI Documentation
 
-Use the starter kit to get your docs deployed and ready to customize.
+Developer documentation for the [Avaliar AI](https://avaliar.ai) observability platform. Built with [Mintlify](https://mintlify.com).
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+## Overview
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+Avaliar is an AI observability platform that monitors, detects, and fixes safety issues in LLM applications. This repository contains the source for our developer documentation at [docs.avaliar.ai](https://docs.avaliar.ai).
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+### Documentation Structure
 
-## AI-assisted writing
-
-Set up your AI coding tool to work with Mintlify:
-
-```bash
-npx skills add https://mintlify.com/docs
-```
-
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
-
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+- **Getting Started** — Platform overview, quickstart guide, core concepts
+- **Python SDK** — Installation, `@traceable` decorator, detection, benchmarks
+- **Proxy Integration** — Proxy gateway setup and architecture
+- **Detection** — 6 detector types, local vs cloud modes
+- **Benchmarks & Evals** — MMLU, DROP, HellaSwag, TruthfulQA, BigBenchHard, HumanEval, BBQ, HEx-PHI
+- **Platform** — Traces, analytics, alerts, reports, team management, API keys
+- **Architecture** — Event-sourced trace system, data flow
+- **API Reference** — Complete REST API documentation with OpenAPI spec
 
 ## Development
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
+Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview documentation changes locally:
 
-```
+```bash
 npm i -g mint
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+Run the development server:
 
-```
+```bash
 mint dev
 ```
 
 View your local preview at `http://localhost:3000`.
 
-## Publishing changes
+## Publishing
 
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
+Changes pushed to the `main` branch are automatically deployed via the Mintlify GitHub integration.
 
-## Need help?
+## Resources
 
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+- [Avaliar Dashboard](https://app.avaliar.ai)
+- [Python SDK](https://pypi.org/project/avaliar-python-sdk/)
+- [GitHub Organization](https://github.com/avaliar-ai)

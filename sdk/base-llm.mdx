@@ -1,0 +1,184 @@
+---
+title: "AvaliarBaseLLM"
+description: "Implement the LLM interface for benchmarks and evaluations"
+icon: "robot"
+---
+
+## Overview
+
+To run benchmarks and evaluations with Avaliar, implement the `AvaliarBaseLLM` abstract class. This gives the benchmark runner a standard interface to call your model, regardless of which provider or configuration you use.
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+```
+
+## Interface Definition
+
+```python
+from abc import ABC, abstractmethod
+
+
+class AvaliarBaseLLM(ABC):
+    """Abstract base class for LLM implementations."""
+
+    @abstractmethod
+    def __init__(self):
+        """Initialize your LLM client and configuration."""
+        ...
+
+    @abstractmethod
+    def generate(self, prompt: str) -> str:
+        """Generate a single response from a prompt.
+
+        Args:
+            prompt: The input prompt string.
+
+        Returns:
+            The model's response as a string.
+        """
+        ...
+
+    def batch_generate(self, prompts: list[str], **kwargs) -> list[str]:
+        """Generate responses for multiple prompts.
+
+        Override this method to implement optimized batch processing.
+        The default implementation calls generate() sequentially.
+
+        Args:
+            prompts: A list of input prompt strings.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            A list of response strings, one per prompt.
+        """
+        return [self.generate(prompt) for prompt in prompts]
+```
+
+## Required Methods
+
+<Steps>
+  <Step title="__init__()">
+    Initialize your LLM client, set the model name, and configure any parameters such as temperature or max tokens.
+  </Step>
+  <Step title="generate(prompt: str) -> str">
+    Accept a single prompt string and return the model's response as a string. This is the core method that the benchmark runner calls for each test case.
+  </Step>
+</Steps>
+
+## Optional Methods
+
+<AccordionGroup>
+  <Accordion title="batch_generate(prompts, **kwargs) -> list[str]" icon="layer-group">
+    Override this method to implement optimized batch processing. The default implementation calls `generate()` sequentially for each prompt.
+
+    If your provider supports batch APIs or you want to add concurrency, override this method to improve benchmark throughput.
+  </Accordion>
+</AccordionGroup>
+
+## Implementation Examples
+
+### OpenAI
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+from openai import OpenAI
+
+
+class MyLLM(AvaliarBaseLLM):
+    def __init__(self, model: str = "gpt-4o"):
+        self.client = OpenAI()
+        self.model = model
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=2048,
+        )
+        return response.choices[0].message.content
+```
+
+### Anthropic
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+from anthropic import Anthropic
+
+
+class AnthropicLLM(AvaliarBaseLLM):
+    def __init__(self, model: str = "claude-sonnet-4-20250514"):
+        self.client = Anthropic()
+        self.model = model
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
+```
+
+### With Optimized Batch Processing
+
+```python
+import concurrent.futures
+from avaliar.models.base import AvaliarBaseLLM
+from openai import OpenAI
+
+
+class BatchLLM(AvaliarBaseLLM):
+    def __init__(self, model: str = "gpt-4o", max_workers: int = 8):
+        self.client = OpenAI()
+        self.model = model
+        self.max_workers = max_workers
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=2048,
+        )
+        return response.choices[0].message.content
+
+    def batch_generate(self, prompts: list[str], **kwargs) -> list[str]:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.max_workers
+        ) as executor:
+            results = list(executor.map(self.generate, prompts))
+        return results
+```
+
+<Tip>
+  Override `batch_generate` with concurrent execution to dramatically speed up benchmarks. A thread pool works well for I/O-bound LLM API calls.
+</Tip>
+
+## TestCase Model
+
+When running benchmarks, each test case is represented as a `TestCase` object with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `input` | `str` | The input prompt sent to your model |
+| `output` | `str` | The actual response generated by your model |
+| `expected_output` | `str` | The expected or reference response for comparison |
+| `context` | `str` | Additional context relevant to the test case |
+
+The benchmark runner calls your `generate()` method with the `input` field and stores the result in `output`. Scoring functions then compare `output` against `expected_output` using the provided `context`.
+
+```python
+from avaliar.models.base import TestCase
+
+test_case = TestCase(
+    input="What is the capital of France?",
+    output="The capital of France is Paris.",
+    expected_output="Paris",
+    context="European geography question",
+)
+```
+
+<Note>
+  You do not need to create `TestCase` objects yourself when running benchmarks. The benchmark runner constructs them automatically from the dataset and your model's responses.
+</Note>

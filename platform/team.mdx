@@ -1,0 +1,93 @@
+---
+title: "Team Management"
+description: "Manage your team members and roles"
+icon: "users"
+---
+
+## Overview
+
+Team management lets you control who has access to your Avaliar organization and what they can do. Every organization has at least one admin, and you can invite additional members with either the Admin or Member role.
+
+Manage your team at [app.avaliar.ai/settings/team](https://app.avaliar.ai/settings/team).
+
+## Roles
+
+Avaliar uses two roles to control access within an organization.
+
+| Role | Description |
+|------|-------------|
+| **Admin** | Full access to all features. Can manage team members, API keys, alerts, billing, and organization settings. |
+| **Member** | Read access to traces, analytics, and benchmarks. Cannot manage team members, API keys, or billing. |
+
+### Permissions by Role
+
+| Permission | Admin | Member |
+|------------|-------|--------|
+| View traces and trace details | Yes | Yes |
+| View analytics dashboard | Yes | Yes |
+| View benchmark results | Yes | Yes |
+| Create and manage alerts | Yes | No |
+| Generate reports | Yes | No |
+| Manage API keys | Yes | No |
+| Invite and remove team members | Yes | No |
+| Change member roles | Yes | No |
+| Manage billing and plan | Yes | No |
+| Update organization settings | Yes | No |
+
+## Inviting Members
+
+<Steps>
+  <Step title="Open Team Settings">
+    Navigate to [app.avaliar.ai/settings/team](https://app.avaliar.ai/settings/team).
+  </Step>
+  <Step title="Enter Email and Role">
+    Enter the email address of the person you want to invite and select their role (Admin or Member).
+  </Step>
+  <Step title="Send Invitation">
+    Click **Send Invite**. The invitee receives an email with a link to join your organization.
+  </Step>
+</Steps>
+
+<Info>
+  Invitations are valid until accepted or cancelled. The invitee does not need an existing Avaliar account -- they will be prompted to create one when they accept the invitation.
+</Info>
+
+## Pending Invitations
+
+View all outstanding invitations in the **Pending Invitations** section of the team settings page. From here you can:
+
+- See the email address and role for each pending invitation
+- See when the invitation was sent
+- Cancel an invitation that is no longer needed
+
+## Changing Roles
+
+Admins can change the role of any team member:
+
+- **Promote** a Member to Admin to give them full access
+- **Demote** an Admin to Member to restrict their permissions
+
+Role changes take effect immediately.
+
+<Warning>
+  At least one admin must exist in every organization. You cannot demote the last remaining admin.
+</Warning>
+
+## Removing Members
+
+Admins can remove team members from the organization. Removing a member:
+
+- Revokes their access to the organization immediately
+- Does not delete their Avaliar account
+- Does not affect traces or data they previously created
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Keys" icon="key" href="/platform/api-keys">
+    Create and manage API keys for your team's SDK and Proxy integrations.
+  </Card>
+  <Card title="Alerts" icon="bell" href="/platform/alerts">
+    Configure alert notifications and control who receives them.
+  </Card>
+</CardGroup>

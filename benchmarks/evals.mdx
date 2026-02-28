@@ -1,0 +1,207 @@
+---
+title: "Safety & Bias Evals"
+description: "Evaluate your model for bias, toxicity, and safety risks"
+icon: "flask-vial"
+---
+
+## Overview
+
+Evals are different from benchmarks. While benchmarks measure general capability (knowledge, reasoning, code generation), evals measure specific **safety and fairness qualities** of your model. They answer questions like: Does this model exhibit social bias? Will it follow harmful instructions? Does it generate toxic content?
+
+Avaliar includes four safety and bias evaluation suites:
+
+| Eval | Focus |
+|------|-------|
+| **BBQ** | Social bias in question answering across protected categories. |
+| **BOLD** | Bias in open-ended text generation. |
+| **HEx-PHI** | Whether the model follows harmful or explicit instructions. |
+| **RealToxicityPrompts** | Tendency to generate toxic continuations from real-world prompts. |
+
+Evals follow the same workflow as benchmarks: implement `AvaliarBaseLLM`, choose an eval, run it, and post results to Avaliar.
+
+<Tabs>
+  <Tab title="BBQ">
+    ## Bias Benchmark for QA
+
+    BBQ measures social bias in question-answering across multiple protected categories. It uses carefully constructed multiple-choice questions where one answer reflects a known social stereotype and another is anti-stereotypical. The benchmark detects whether your model disproportionately selects biased answers.
+
+    ### Categories
+
+    - Gender
+    - Nationality
+    - Race / Ethnicity
+    - Religion
+    - Age
+    - Disability
+    - Socioeconomic status
+    - Sexual orientation
+
+    - **Format:** Multiple choice with bias-probing questions
+    - **Supports:** Up to 5-shot prompting
+    - **Metrics:** Accuracy, bias score (rate of stereotypical answers)
+
+    ### Usage
+
+    ```python
+    from avaliar.evals.bias.bbq import BBQ
+    from avaliar.evals.bias.bbq.task import BBQTask
+
+    bbq = BBQ(
+        tasks=[BBQTask.GENDER, BBQTask.RACE],
+        n_shots=5,
+        n_problems_per_task=100
+    )
+    result = bbq.evaluate(my_llm)
+    print(f"Accuracy: {result.overall_accuracy:.2%}")
+    print(f"Bias Score: {result.bias_score:.2%}")
+    ```
+
+    | Parameter | Type | Description |
+    |-----------|------|-------------|
+    | `tasks` | `list[BBQTask]` | Bias categories to evaluate. |
+    | `n_shots` | `int` | Number of few-shot examples (0-5). |
+    | `n_problems_per_task` | `int` | Number of questions per category. |
+  </Tab>
+
+  <Tab title="BOLD">
+    ## Bias in Open-Ended Language Generation
+
+    BOLD evaluates bias in open-ended text generation. It provides prompts related to various demographic groups and measures whether the model's completions contain biased, stereotypical, or unfair content across protected attributes.
+
+    - **Format:** Open-ended text generation from demographic-related prompts
+    - **Focus:** Fairness across race, gender, religion, political ideology, and profession
+    - **Metrics:** Sentiment disparity, toxicity rate, and regard score across demographic groups
+
+    ### Usage
+
+    ```python
+    from avaliar.evals.bias.bold import BOLD
+    from avaliar.evals.bias.bold.task import BOLDTask
+
+    bold = BOLD(
+        tasks=[BOLDTask.GENDER, BOLDTask.RACE],
+        n_problems_per_task=100
+    )
+    result = bold.evaluate(my_llm)
+    print(f"Sentiment Disparity: {result.sentiment_disparity:.4f}")
+    print(f"Toxicity Rate: {result.toxicity_rate:.2%}")
+    ```
+
+    | Parameter | Type | Description |
+    |-----------|------|-------------|
+    | `tasks` | `list[BOLDTask]` | Demographic categories to evaluate. |
+    | `n_problems_per_task` | `int` | Number of prompts per category. |
+  </Tab>
+
+  <Tab title="HEx-PHI">
+    ## Harmful Instruction Following
+
+    HEx-PHI evaluates whether your model follows harmful or explicitly dangerous instructions. It covers 10 harm categories and uses a **judge model** (GPT-4 or Claude) to score the target model's responses for harmfulness.
+
+    ### Harm Categories
+
+    1. Illegal activity
+    2. Hate and harassment
+    3. Malware generation
+    4. Physical harm
+    5. Economic harm
+    6. Fraud and deception
+    7. Adult content
+    8. Political campaigning
+    9. Privacy violation
+    10. Unqualified financial advice
+
+    - **Format:** Harmful instruction prompts scored by a judge model
+    - **Metrics:** Mean harmfulness score, harmful response rate
+    - **Requires:** API key for the judge model provider
+
+    ### Usage
+
+    ```python
+    from avaliar.evals.safety.hex_phi import HExPHI, HExPHICategory
+
+    hex_phi = HExPHI(
+        categories=[
+            HExPHICategory.ILLEGAL_ACTIVITY,
+            HExPHICategory.HATE_AND_HARASSMENT,
+            HExPHICategory.MALWARE_GENERATION
+        ],
+        judge_provider="openai",
+        judge_model="gpt-4"
+    )
+    result = hex_phi.evaluate(my_llm)
+    print(f"Mean Harmfulness Score: {result.mean_harmfulness:.2f}")
+    print(f"Harmful Response Rate: {result.harmful_rate:.2%}")
+    ```
+
+    | Parameter | Type | Description |
+    |-----------|------|-------------|
+    | `categories` | `list[HExPHICategory]` | Harm categories to test. |
+    | `judge_provider` | `str` | Provider for the judge model (`"openai"` or `"anthropic"`). |
+    | `judge_model` | `str` | Model name for the judge (e.g., `"gpt-4"`, `"claude-sonnet-4-20250514"`). |
+
+    <Note>
+      HEx-PHI requires an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable for the judge model, depending on which `judge_provider` you select.
+    </Note>
+  </Tab>
+
+  <Tab title="RealToxicityPrompts">
+    ## Toxicity in Continuations
+
+    RealToxicityPrompts measures the likelihood that a model generates toxic content when given real-world prompts sourced from internet content. The prompts range from benign to mildly toxic, and the eval measures how often the model's completions contain toxic language.
+
+    - **Source:** RealToxicityPrompts dataset (100k+ prompts from web text)
+    - **Format:** Open-ended text continuation
+    - **Metrics:** Expected maximum toxicity, toxicity probability (fraction of completions above threshold)
+
+    ### Usage
+
+    ```python
+    from avaliar.evals.safety.real_toxicity_prompts import RealToxicityPrompts
+    from avaliar.evals.safety.real_toxicity_prompts.task import (
+        RealToxicityPromptsTask,
+    )
+
+    rtp = RealToxicityPrompts(
+        tasks=[RealToxicityPromptsTask.DEFAULT],
+        n_problems_per_task=1000
+    )
+    result = rtp.evaluate(my_llm)
+    print(f"Expected Max Toxicity: {result.expected_max_toxicity:.4f}")
+    print(f"Toxicity Probability: {result.toxicity_probability:.2%}")
+    ```
+
+    | Parameter | Type | Description |
+    |-----------|------|-------------|
+    | `tasks` | `list[RealToxicityPromptsTask]` | Task configuration. |
+    | `n_problems_per_task` | `int` | Number of prompts to evaluate. |
+  </Tab>
+</Tabs>
+
+## Posting Eval Results
+
+All eval results can be posted to the Avaliar platform using the same `post_results()` method as benchmarks:
+
+```python
+bbq.post_results(
+    model_name="gpt-4o",
+    tags=["safety-audit", "v2.0"]
+)
+```
+
+Results appear in the Avaliar dashboard alongside benchmark data, giving you a complete view of both model capability and safety characteristics.
+
+<Note>
+  Evals that use a judge model (HEx-PHI) require an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable set for the judge provider. The target model being evaluated uses your `AvaliarBaseLLM` implementation as usual.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Available Benchmarks" icon="list-check" href="/benchmarks/available">
+    See all 6 capability benchmark suites with usage examples.
+  </Card>
+  <Card title="Benchmarks Overview" icon="chart-bar" href="/benchmarks/overview">
+    Understand the benchmarking workflow and how it fits into Avaliar.
+  </Card>
+</CardGroup>
