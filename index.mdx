@@ -1,19 +1,19 @@
 ---
 title: "Avaliar AI Documentation"
-description: "Monitor, detect, and fix AI safety issues in production"
+description: "AI Runtime governance platform that monitors, detects, and provides evidence of AI risk in production"
 icon: "shield-check"
 ---
 
-Avaliar is an AI observability platform that monitors, detects, and fixes safety issues in LLM applications. Whether you are dealing with hallucinations, bias, toxicity, PII leaks, prompt injection, or jailbreak attempts, Avaliar provides real-time detection and actionable insights to keep your AI systems safe and reliable.
+Avaliar is an AI observability platform that monitors, detects, and provide runtime governance of AI risk in production in LLM applications. Whether you are dealing with hallucinations, bias, toxicity, PII leaks, prompt injection attempts.
 
 <CardGroup cols={3}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
+  <Card icon="rocket" href="/quickstart" title="Quickstart">
     Get up and running with Avaliar in 5 minutes.
   </Card>
-  <Card title="Python SDK" icon="python" href="/sdk/installation">
+  <Card icon="python" href="/sdk/installation" title="Python SDK">
     Install and configure the Avaliar Python SDK.
   </Card>
-  <Card title="Proxy Gateway" icon="server" href="/proxy/overview">
+  <Card icon="server" href="/proxy/overview" title="Proxy Gateway">
     Route LLM traffic through the Avaliar Proxy for zero-code tracing.
   </Card>
 </CardGroup>
@@ -21,13 +21,13 @@ Avaliar is an AI observability platform that monitors, detects, and fixes safety
 ## Why Avaliar?
 
 <CardGroup cols={3}>
-  <Card title="Real-time Detection" icon="radar">
+  <Card icon="radar" title="Real-time Detection">
     Six built-in detectors analyze every LLM interaction for prompt injection, jailbreak attempts, toxicity, PII leaks, bias, and hallucinations. Issues are flagged in milliseconds, not hours.
   </Card>
-  <Card title="Comprehensive Benchmarks" icon="chart-bar">
+  <Card icon="chart-bar" title="Comprehensive Benchmarks">
     Evaluate your models against industry-standard benchmark suites including MMLU, DROP, HellaSwag, TruthfulQA, BigBenchHard, and HumanEval. Track capability over time and across model versions.
   </Card>
-  <Card title="Actionable Alerts" icon="bell">
+  <Card icon="bell" title="Actionable Alerts">
     Configure threshold, trend, pattern, and anomaly-based alert conditions. Receive notifications via email, Slack, or webhook the moment a safety issue surfaces.
   </Card>
 </CardGroup>
@@ -37,25 +37,25 @@ Avaliar is an AI observability platform that monitors, detects, and fixes safety
 Avaliar follows a three-stage trace lifecycle that takes every LLM interaction from raw data to resolved insight.
 
 <Steps>
-  <Step title="Capture" icon="inbox">
+  <Step icon="inbox" title="Capture">
     Instrument your application with the `@traceable` decorator or route traffic through the Avaliar Proxy. Every request and response is recorded as a structured trace with full metadata, including model, provider, latency, and token counts.
   </Step>
-  <Step title="Detect" icon="magnifying-glass">
+  <Step icon="magnifying-glass" title="Detect">
     Traces are automatically passed through the detection pipeline. Each enabled detector analyzes the input and output for safety issues. Detectors run locally on your infrastructure or in the Avaliar cloud, depending on your configuration.
   </Step>
-  <Step title="Alert" icon="triangle-exclamation">
+  <Step icon="triangle-exclamation" title="Alert">
     When a detector finds an issue, Avaliar creates a typed, severity-scored finding and evaluates it against your alert rules. If a rule matches, a notification is dispatched to your configured channels so your team can investigate and respond.
   </Step>
 </Steps>
 
 <CardGroup cols={3}>
-  <Card title="Core Concepts" icon="lightbulb" href="/concepts">
+  <Card icon="lightbulb" href="/concepts" title="Core Concepts">
     Understand traces, spans, detectors, and the rest of the Avaliar data model.
   </Card>
-  <Card title="Detection" icon="shield-halved" href="/detection/overview">
+  <Card icon="shield-halved" href="/detection/overview" title="Detection">
     Learn how Avaliar's six detectors work and how to configure them.
   </Card>
-  <Card title="Benchmarks & Evals" icon="flask-vial" href="/benchmarks/overview">
+  <Card icon="flask-vial" href="/benchmarks/overview" title="Benchmarks & Evals">
     Run standardized evaluations to measure model safety and capability.
   </Card>
 </CardGroup>
