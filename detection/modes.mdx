@@ -61,7 +61,7 @@ Cloud detection offloads all analysis to Avaliar's backend infrastructure. The t
 
 1. Your traced function executes and returns a result to the caller
 2. The trace data (prompt + response) is posted to Avaliar immediately
-3. Avaliar queues a detection job to Redis
+3. Avaliar queues the detection job for asynchronous processing
 4. A backend worker picks up the job, runs all detectors, and stores the results
 
 ### Best for

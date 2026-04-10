@@ -24,6 +24,7 @@ from avaliar import traceable
 | `detection` | `bool` | `False` | Enable safety detection on this span |
 | `detectors` | `list[DetectorType]` | `[]` | Specific detectors to run |
 | `detection_mode` | `"local"` \| `"cloud"` | `"local"` | Where detection processing runs |
+| `blocking` | `bool` | `False` | Submit the prompt to Avaliar before calling the LLM. Raises `PromptBlockedError` if blocked. Requires Pro plan and `span_type="llm"`. |
 
 ## Span Types
 
@@ -147,7 +148,8 @@ process_document (generic)
 Add safety detection to any traced function by setting `detection=True` and specifying which detectors to run.
 
 ```python
-from avaliar import traceable, DetectorType
+from avaliar import traceable
+from avaliar.detectors import DetectorType
 
 @traceable(
     "llm",

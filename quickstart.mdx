@@ -22,7 +22,7 @@ Follow these steps to install the Avaliar SDK, trace your first LLM call, and en
     4. Copy the generated key.
 
     <Warning>
-      Store your API key securely. It will only be displayed once.
+      Store your API key securely. Treat it like a password and never commit it to source control.
     </Warning>
   </Step>
 
@@ -70,6 +70,7 @@ Follow these steps to install the Avaliar SDK, trace your first LLM call, and en
 
     ```python
     from avaliar import traceable
+    from avaliar.detectors import DetectorType
     from openai import AsyncOpenAI
 
     client = AsyncOpenAI()
@@ -79,7 +80,14 @@ Follow these steps to install the Avaliar SDK, trace your first LLM call, and en
         model="gpt-4o",
         provider="openai",
         detection=True,
-        detectors=["prompt_injection", "jailbreak", "toxicity", "pii", "bias", "hallucination"]
+        detectors=[
+            DetectorType.PROMPT_INJECTION,
+            DetectorType.JAILBREAK,
+            DetectorType.TOXICITY,
+            DetectorType.PII,
+            DetectorType.BIAS,
+            DetectorType.HALLUCINATION,
+        ]
     )
     async def generate(prompt: str) -> str:
         response = await client.chat.completions.create(

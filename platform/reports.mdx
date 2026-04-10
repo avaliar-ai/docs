@@ -112,7 +112,7 @@ When generating a report, you can configure the following options:
 
     ```bash
     curl -X POST https://api.avaliar.ai/v1/reports/generate \
-      -H "Authorization: Bearer YOUR_CLERK_JWT" \
+      -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
       -H "Content-Type: application/json" \
       -d '{
         "report_type": "security_risk",

@@ -9,7 +9,7 @@ icon: "shield"
 Avaliar detects **6 types of safety issues** in your LLM inputs and outputs. Enable detection on any traced function to automatically scan for prompt injection, jailbreaks, toxicity, PII leakage, bias, and hallucination.
 
 ```python
-from avaliar import DetectorType
+from avaliar.detectors import DetectorType
 ```
 
 ## DetectorType Enum
@@ -28,7 +28,8 @@ from avaliar import DetectorType
 Add detection to any `@traceable` function by setting `detection=True` and listing the detectors you want to run.
 
 ```python
-from avaliar import traceable, DetectorType
+from avaliar import traceable
+from avaliar.detectors import DetectorType
 
 @traceable(
     "llm",
@@ -131,6 +132,60 @@ When detection is enabled, the trace includes a detection result object with the
 | `excerpt` | `str` | The portion of text that triggered the detection |
 | `suggestion` | `str` | Recommended action to resolve the issue |
 | `detector_name` | `str` | Name of the detector that found the issue |
+
+## Blocking Mode
+
+Blocking mode runs a real-time prompt inspection **before** the LLM is ever called. When `blocking=True`, the SDK submits the prompt to Avaliar's backend synchronously. If a threat is detected, `PromptBlockedError` is raised and the LLM call is skipped entirely.
+
+<Note>
+  Blocking mode requires an active **Pro plan** and only applies to `span_type="llm"` spans.
+</Note>
+
+### How it works
+
+1. Your decorated function is called
+2. The prompt is submitted to Avaliar **synchronously** — the LLM call is held
+3. If Avaliar signals a block, `PromptBlockedError` is raised immediately
+4. If the prompt is safe, the LLM call proceeds and the response is submitted once complete
+
+### Usage
+
+```python
+from avaliar import traceable, PromptBlockedError
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+    blocking=True,
+)
+async def safe_generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    return response.choices[0].message.content
+
+
+try:
+    result = await safe_generate(messages)
+except PromptBlockedError as e:
+    print(f"Prompt was blocked: {e}")
+    # Return a safe fallback response
+```
+
+### Blocking vs detection
+
+| | Detection (`detection=True`) | Blocking (`blocking=True`) |
+|---|---|---|
+| When it runs | After the LLM call completes | Before the LLM is called |
+| Stops the LLM call | No | Yes |
+| Raises an exception | No | Yes (`PromptBlockedError`) |
+| Requires Pro plan | No | Yes |
+| Latency impact | None (background) | Adds one round-trip before the LLM call |
 
 ## Choosing Detectors for Your Use Case
 
