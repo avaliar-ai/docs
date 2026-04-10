@@ -27,9 +27,22 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
     | `agent` | An autonomous agent step that may contain child spans |
     | `generic` | Any other operation you want to track |
 
-    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences.
+    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences. Parent-child relationships are tracked automatically using Python's `contextvars` — no manual wiring needed.
 
     → [Traceable Decorator](/sdk/traceable)
+  </Accordion>
+
+  <Accordion title="RunTree" icon="sitemap">
+    Internally, each span is represented as a **RunTree** node. The SDK builds a tree from these nodes as your code executes, using `contextvars` to track which span is currently active. When a `@traceable` function is called, the SDK:
+
+    1. Creates a new `RunTree` node linked to the current parent (if any)
+    2. Sets it as the active span in the current async context
+    3. Executes your function
+    4. Submits the complete trace tree to Avaliar in a background thread
+
+    All span and trace identifiers use **UUIDv7** — time-ordered UUIDs that sort chronologically, avoid collisions within the same millisecond, and keep database indexes compact.
+
+    → [@traceable Decorator](/sdk/traceable)
   </Accordion>
 
   <Accordion title="Detection" icon="shield-halved">
@@ -77,12 +90,12 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
 
     | Eval | Focus |
     |------|-------|
-    | **BBQ** | Social bias across nine demographic categories |
-    | **BOLD** | Fairness in open-ended text generation |
-    | **HEx-PHI** | Harmful prompt identification |
+    | **BBQ** | Social bias across 11 demographic categories |
+    | **BOLD** | Bias and toxicity in open-ended text generation |
+    | **HExPHI** | Whether models follow harmful instructions |
     | **RealToxicityPrompts** | Likelihood of generating toxic continuations |
 
-    → [Benchmarks Overview](/benchmarks/overview) · [Running Benchmarks](/benchmarks/running) · [Available Benchmarks](/benchmarks/available)
+    → [Benchmarks Overview](/benchmarks/overview) · [Available Benchmarks](/benchmarks/available) · [Evals Overview](/evals/overview)
   </Accordion>
 
   <Accordion title="Alerts" icon="bell">

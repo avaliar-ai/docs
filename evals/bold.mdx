@@ -1,0 +1,130 @@
+---
+title: "BOLD"
+description: "Bias in Open-ended Language Generation Dataset"
+icon: "comment-dots"
+---
+
+BOLD evaluates bias in open-ended text generation. Given a prompt about a person or group, it measures toxicity, insult, stereotype bias, and negative regard in model-generated continuations. An LLM judge scores each sample.
+
+## Import
+
+```python
+from avaliar.evals.bias import BOLD, BOLDEvalResult
+```
+
+## Constructor
+
+```python
+BOLD(
+    max_prompts=None,                 # int | None — limit total prompts
+    random_seed=42,                   # int — for reproducible sampling
+    k=5,                              # int (1-7) — samples per prompt
+    bias_threshold=0.5,               # float (0.0-1.0) — threshold for flagging
+    generation_temperature=0.9,       # float — temperature for model sampling
+    judge_provider=None,              # "openai" | "anthropic" | None
+    judge_model=None,                 # str | None — judge model name
+    judge_temperature=0.0,            # float — judge temperature
+)
+```
+
+<Warning>
+  BOLD requires your model to implement `generate_samples(prompt, n, temperature) -> list[str]` in addition to the standard `generate()` method. See [AvaliarBaseLLM](/sdk/base-llm#generate_samples) for details.
+</Warning>
+
+## Model requirements
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+from openai import OpenAI
+
+
+class MyModel(AvaliarBaseLLM):
+    def __init__(self):
+        self.client = OpenAI()
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+
+    def generate_samples(
+        self, prompt: str, n: int, temperature: float
+    ) -> list[str]:
+        responses = []
+        for _ in range(n):
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+            )
+            responses.append(response.choices[0].message.content)
+        return responses
+```
+
+## Usage
+
+```python
+bold = BOLD(
+    max_prompts=100,
+    k=5,
+    bias_threshold=0.5,
+    judge_provider="openai",
+    judge_model="gpt-4o",
+)
+
+result = bold.evaluate(MyModel())
+print(f"Overall score (bias-free): {result.overall_score}")
+print(f"Expected max toxicity: {result.expected_max_toxicity}")
+print(f"Stereotype bias probability: {result.stereotype_bias_probability}")
+```
+
+## Results
+
+### BOLDEvalResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `overall_score` | `float` | Bias-free score (1.0 - mean bias) |
+| `expected_max_toxicity` | `float` | Expected maximum toxicity across samples |
+| `expected_max_insult` | `float` | Expected maximum insult score |
+| `expected_max_stereotype_bias` | `float` | Expected maximum stereotype bias |
+| `expected_max_negative_regard` | `float` | Expected maximum negative regard |
+| `toxicity_probability` | `float` | % of prompts with toxicity ≥ threshold |
+| `insult_probability` | `float` | % of prompts with insult ≥ threshold |
+| `stereotype_bias_probability` | `float` | % of prompts with stereotype bias ≥ threshold |
+| `negative_regard_probability` | `float` | % of prompts with negative regard ≥ threshold |
+| `mean_domain_stereotype_gap` | `float` | Mean stereotype gap across domains |
+
+### Accessing detailed data
+
+```python
+# Per-sample predictions
+print(bold.predictions)
+# Columns: Prompt Index, Domain, Category, Name, Prompt,
+#          Sample Index, Sample, Toxicity, Insult,
+#          Stereotype Bias, Negative Regard
+
+# Per-prompt aggregated metrics
+print(bold.prompt_metrics)
+
+# Per-domain/category scores
+print(bold.task_scores)
+```
+
+## How it works
+
+1. Loads prompts from HuggingFace (`AmazonScience/bold`), each associated with a demographic domain and category.
+2. For each prompt, generates `k` continuations using `generate_samples()`.
+3. An LLM judge scores each continuation on toxicity, insult, stereotype bias, and negative regard (0.0–1.0).
+4. Aggregates scores per prompt (expected maximum) and across all prompts.
+
+## Posting results
+
+```python
+bold.post_results(
+    model_name="gpt-4o",
+    tags=["bias-audit"],
+)
+```

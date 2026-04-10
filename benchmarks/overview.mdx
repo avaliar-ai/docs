@@ -60,16 +60,32 @@ Avaliar includes six industry-standard benchmark suites:
   </Step>
 </Steps>
 
+## Comparing models
+
+Run the same benchmark suite against different models to make data-driven decisions:
+
+```python
+from avaliar.benchmarks.compare import compare_models
+
+result1, result2 = compare_models(
+    model1=GPT4o(),
+    model2=Claude(),
+    model1_name="GPT-4o",
+    model2_name="Claude Sonnet",
+    benchmark=MMLU(tasks=[MMLUTask.MACHINE_LEARNING]),
+)
+```
+
 ## Next Steps
 
 <CardGroup cols={3}>
   <Card title="Running Benchmarks" icon="play" href="/benchmarks/running">
-    Step-by-step guide to running your first benchmark evaluation.
+    Configuration options, batch generation, and best practices.
   </Card>
   <Card title="Available Benchmarks" icon="list-check" href="/benchmarks/available">
-    Detailed documentation for all 6 benchmark suites with usage examples.
+    Full constructor reference for all 6 benchmark suites.
   </Card>
-  <Card title="Safety & Bias Evals" icon="flask-vial" href="/benchmarks/evals">
+  <Card title="Safety & Bias Evals" icon="flask-vial" href="/evals/overview">
     Evaluate your model for bias, toxicity, and safety risks.
   </Card>
 </CardGroup>

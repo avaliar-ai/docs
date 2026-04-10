@@ -10,27 +10,52 @@ Avaliar's detection system automatically analyzes LLM inputs and outputs to iden
 
 Detection is the core of Avaliar's safety layer. It turns raw traces into actionable findings with severity classifications and, when configured, triggers real-time alerts.
 
-## Two Paths to Detection
+## Three ways to use detection
 
-There are two ways detection runs, depending on how you integrate with Avaliar:
+### 1. SDK — integrated with tracing
 
-### SDK Detection
-
-When you use the `@traceable` decorator from the Avaliar Python SDK, detection runs on each traced function call. You choose whether detection runs **locally** (on your infrastructure) or in the **cloud** (on Avaliar's backend).
+Add detection directly to any `@traceable` LLM span. Results are automatically attached to your traces.
 
 ```python
 from avaliar import traceable
+from avaliar.detectors import DetectorType
 
-@traceable(detection_mode="local")  # or "cloud"
-def ask_llm(prompt: str) -> str:
+@traceable(
+    "llm",
+    model="gpt-4o",
+    provider="openai",
+    detection=True,
+    detectors=[DetectorType.PROMPT_INJECTION, DetectorType.TOXICITY],
+    detection_mode="cloud",
+)
+async def generate(messages: list) -> str:
     ...
 ```
 
-### Proxy Detection
+### 2. SDK — standalone
+
+Run detectors independently for custom validation workflows:
+
+```python
+from avaliar.detectors import Detector, DetectorType
+
+detector = Detector([DetectorType.PROMPT_INJECTION, DetectorType.PII])
+
+result = await detector.evaluate_full(
+    prompt="User input here",
+    response="LLM response here",
+)
+
+if result.has_issues:
+    for issue in result.issues:
+        print(f"{issue.type}: {issue.message} (severity: {issue.severity})")
+```
+
+### 3. Proxy Detection
 
 When you route LLM calls through the [Avaliar Proxy](/proxy/overview), detection is automatic. Prompt injection detection runs synchronously (blocking harmful inputs), while all other detectors run asynchronously on Avaliar's backend.
 
-No code changes or configuration are needed — the proxy handles everything.
+No code changes are needed — the proxy handles everything.
 
 ## Detection Pipeline
 

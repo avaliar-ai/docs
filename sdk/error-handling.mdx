@@ -21,7 +21,27 @@ AvaliarError
 ├── AvaliarAuthError         # Authentication failed (HTTP 401)
 ├── AvaliarNotFoundError     # Resource not found (HTTP 404)
 ├── AvaliarConflictError     # Resource conflict (HTTP 409)
-└── AvaliarConnectionError   # Network connectivity issues
+├── AvaliarConnectionError   # Network connectivity issues
+└── PromptBlockedError       # Prompt blocked by safety check (blocking mode)
+```
+
+## PromptBlockedError
+
+Raised when [blocking mode](/sdk/detection#blocking-mode) is enabled and a prompt is flagged before reaching the LLM:
+
+```python
+from avaliar import traceable, PromptBlockedError
+
+@traceable("llm", model="gpt-4o", provider="openai", blocking=True)
+async def generate(messages: list) -> str:
+    ...
+
+try:
+    result = await generate(messages)
+except PromptBlockedError as e:
+    print(e.reason)   # Why the prompt was blocked
+    print(e.issues)   # List of detected issues (may be None)
+    # Return a safe fallback response
 ```
 
 ### Error Reference
@@ -56,11 +76,11 @@ The SDK automatically retries transient errors using **exponential backoff with 
     delay = 2^attempt + random_jitter(0, 0.5)
     ```
 
-    | Attempt | Base Delay | With Jitter |
-    |---------|------------|-------------|
-    | 1 | 2s | 2.0s -- 2.5s |
-    | 2 | 4s | 4.0s -- 4.5s |
-    | 3 | 8s | 8.0s -- 8.5s |
+    | Attempt | Wait time |
+    |---------|-----------|
+    | 1st retry | 1.0–1.5s |
+    | 2nd retry | 2.0–2.5s |
+    | 3rd retry | 4.0–4.5s |
   </Step>
   <Step title="Max Retries">
     The SDK retries up to **3 times** by default. After all retries are exhausted, the original error is raised.
@@ -72,7 +92,7 @@ The SDK automatically retries transient errors using **exponential backoff with 
 ### Catch a Specific Error
 
 ```python
-from avaliar.errors import AvaliarAuthError, AvaliarRateLimitError
+from avaliar.errors.client_errors import AvaliarAuthError, AvaliarRateLimitError
 
 try:
     result = await generate(messages)
@@ -85,7 +105,7 @@ except AvaliarRateLimitError:
 ### Catch All Avaliar Errors
 
 ```python
-from avaliar.errors import AvaliarError
+from avaliar.errors.client_errors import AvaliarError
 
 try:
     result = await generate(messages)
@@ -96,7 +116,7 @@ except AvaliarError as e:
 ### Handle Errors by Category
 
 ```python
-from avaliar.errors import (
+from avaliar.errors.client_errors import (
     AvaliarError,
     AvaliarAuthError,
     AvaliarUserError,
@@ -133,6 +153,25 @@ except (AvaliarAPIError, AvaliarConnectionError, AvaliarRateLimitError) as e:
 except AvaliarError as e:
     # Catch-all for any other SDK error
     logger.error(f"Unexpected Avaliar error: {e}")
+```
+
+## Background error handling
+
+Trace submission happens in background threads. By default, errors in background submission are silently handled — they do not crash your application. If you need to observe or log those failures, use the client directly:
+
+```python
+from avaliar.client import Client
+
+client = Client()
+
+def on_error(e: Exception):
+    logger.error(f"Trace submission failed: {e}")
+
+client.thread_request_with_retries(
+    method="POST",
+    data=trace_data,
+    on_error=on_error,
+)
 ```
 
 ## Configuration

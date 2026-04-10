@@ -1,214 +1,159 @@
 ---
 title: "Available Benchmarks"
-description: "All 6 benchmark suites with usage examples"
+description: "Detailed reference for each benchmark suite"
 icon: "list-check"
 ---
 
-Avaliar includes six industry-standard benchmark suites. Each benchmark evaluates a different dimension of model capability. Select the tabs below to see details and usage examples for each.
+## MMLU
 
-<Tabs>
-  <Tab title="MMLU">
-    ## Massive Multitask Language Understanding
+**Massive Multitask Language Understanding** — Tests knowledge across 57 subjects including STEM, humanities, and social sciences.
 
-    MMLU tests broad knowledge across **57 subjects** spanning STEM, humanities, social sciences, and more. It is one of the most widely used benchmarks for evaluating general-purpose language models.
+```python
+from avaliar.benchmarks import MMLU
+from avaliar.benchmarks.mmlu.task import MMLUTask
 
-    - **Format:** Multiple choice (A / B / C / D)
-    - **Supports:** Up to 5-shot prompting
-    - **Metric:** Accuracy (percentage of correct answers)
+benchmark = MMLU(
+    tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.HIGH_SCHOOL_MATHEMATICS],
+    n_shots=5,                          # Up to 5 (default: 5)
+    confinement_instructions=None,      # Optional custom output instructions
+)
+result = benchmark.evaluate(model)
+```
 
-    ### Example Subjects
+**Format:** Multiple choice (A/B/C/D)  
+**Scoring:** Exact match  
+**Dataset:** HuggingFace `cais/mmlu`
 
-    `machine_learning`, `computer_security`, `high_school_mathematics`, `college_physics`, `abstract_algebra`, `philosophy`, `anatomy`, `clinical_knowledge`, `electrical_engineering`, `us_history`, `world_religions`, `marketing`, `professional_law`
+<Accordion title="All 57 MMLU tasks">
+  `ABSTRACT_ALGEBRA`, `ANATOMY`, `ASTRONOMY`, `BUSINESS_ETHICS`, `CLINICAL_KNOWLEDGE`, `COLLEGE_BIOLOGY`, `COLLEGE_CHEMISTRY`, `COLLEGE_COMPUTER_SCIENCE`, `COLLEGE_MATHEMATICS`, `COLLEGE_MEDICINE`, `COLLEGE_PHYSICS`, `COMPUTER_SECURITY`, `CONCEPTUAL_PHYSICS`, `ECONOMETRICS`, `ELECTRICAL_ENGINEERING`, `ELEMENTARY_MATHEMATICS`, `FORMAL_LOGIC`, `GLOBAL_FACTS`, `HIGH_SCHOOL_BIOLOGY`, `HIGH_SCHOOL_CHEMISTRY`, `HIGH_SCHOOL_COMPUTER_SCIENCE`, `HIGH_SCHOOL_EUROPEAN_HISTORY`, `HIGH_SCHOOL_GEOGRAPHY`, `HIGH_SCHOOL_GOVERNMENT_AND_POLITICS`, `HIGH_SCHOOL_MACROECONOMICS`, `HIGH_SCHOOL_MATHEMATICS`, `HIGH_SCHOOL_MICROECONOMICS`, `HIGH_SCHOOL_PHYSICS`, `HIGH_SCHOOL_PSYCHOLOGY`, `HIGH_SCHOOL_STATISTICS`, `HIGH_SCHOOL_US_HISTORY`, `HIGH_SCHOOL_WORLD_HISTORY`, `HUMAN_AGING`, `HUMAN_SEXUALITY`, `INTERNATIONAL_LAW`, `JURISPRUDENCE`, `LOGICAL_FALLACIES`, `MACHINE_LEARNING`, `MANAGEMENT`, `MARKETING`, `MEDICAL_GENETICS`, `MISCELLANEOUS`, `MORAL_DISPUTES`, `MORAL_SCENARIOS`, `NUTRITION`, `PHILOSOPHY`, `PREHISTORY`, `PROFESSIONAL_ACCOUNTING`, `PROFESSIONAL_LAW`, `PROFESSIONAL_MEDICINE`, `PROFESSIONAL_PSYCHOLOGY`, `PUBLIC_RELATIONS`, `SECURITY_STUDIES`, `SOCIOLOGY`, `US_FOREIGN_POLICY`, `VIROLOGY`, `WORLD_RELIGIONS`
+</Accordion>
 
-    ### Usage
+---
 
-    ```python
-    from avaliar.benchmarks import MMLU
-    from avaliar.benchmarks.mmlu.task import MMLUTask
+## HellaSwag
 
-    benchmark = MMLU(
-        tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.COLLEGE_PHYSICS],
-        n_shots=5
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"Accuracy: {result.overall_accuracy:.2%}")
-    ```
+**Commonsense reasoning** — Tests the ability to predict what happens next in real-world scenarios.
 
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[MMLUTask]` | Subject areas to evaluate. |
-    | `n_shots` | `int` | Number of few-shot examples (0-5). |
-  </Tab>
+```python
+from avaliar.benchmarks import HellaSwag
+from avaliar.benchmarks.hellaswag.task import HellaSwagTask
 
-  <Tab title="DROP">
-    ## Discrete Reasoning Over Paragraphs
+benchmark = HellaSwag(
+    tasks=[HellaSwagTask.ACTIVITY_NET],
+    n_shots=10,                         # Up to 10 (default: 10)
+    n_problems_per_task=None,           # Limit problems per task (optional)
+    confinement_instructions=None,
+)
+result = benchmark.evaluate(model)
+```
 
-    DROP evaluates reading comprehension combined with numerical reasoning. Models must read a passage and answer questions that require discrete operations such as addition, counting, or sorting.
+**Format:** Sentence completion (choose the best ending)  
+**Scoring:** Exact match
 
-    - **Format:** Open-ended answer extraction
-    - **Metrics:** Exact match (EM) and F1 score
-    - **Focus:** Numerical reasoning, multi-step comprehension
+---
 
-    ### Usage
+## DROP
 
-    ```python
-    from avaliar.benchmarks import DROP
-    from avaliar.benchmarks.drop.task import DROPTask
+**Discrete Reasoning Over Paragraphs** — Tests reading comprehension and numerical reasoning.
 
-    benchmark = DROP(
-        tasks=[DROPTask.DEFAULT],
-        n_shots=3
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"Exact Match: {result.overall_accuracy:.2%}")
-    print(f"F1 Score: {result.f1_score:.2%}")
-    ```
+```python
+from avaliar.benchmarks import DROP
+from avaliar.benchmarks.drop.task import DROPTask
 
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[DROPTask]` | Task subsets to evaluate. |
-    | `n_shots` | `int` | Number of few-shot examples. |
-  </Tab>
+benchmark = DROP(
+    tasks=None,                         # None = all tasks
+    n_shots=5,                          # Up to 5 (default: 5)
+    n_problems_per_task=None,
+)
+result = benchmark.evaluate(model)
+```
 
-  <Tab title="HellaSwag">
-    ## Commonsense Reasoning via Sentence Completion
+**Format:** Free-form answer (text or number)  
+**Scoring:** Custom metrics handling numerical, span, and multi-span answers
 
-    HellaSwag tests commonsense natural language inference by asking models to select the most plausible continuation of a given scenario. The incorrect options are adversarially generated to be challenging.
+---
 
-    - **Format:** Multiple choice (select the best continuation)
-    - **Supports:** Up to 10-shot prompting
-    - **Metric:** Accuracy
+## TruthfulQA
 
-    ### Usage
+**Truthfulness evaluation** — Tests whether models generate truthful answers and avoid common misconceptions.
 
-    ```python
-    from avaliar.benchmarks import HellaSwag
-    from avaliar.benchmarks.hellaswag.task import HellaSwagTask
+```python
+from avaliar.benchmarks import TruthfulQA
+from avaliar.benchmarks.truthful_qa.truthful_qa import TruthfulQAMode
 
-    benchmark = HellaSwag(
-        tasks=[HellaSwagTask.DEFAULT],
-        n_shots=10
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"Accuracy: {result.overall_accuracy:.2%}")
-    ```
+benchmark = TruthfulQA(
+    tasks=None,                         # None = all tasks
+    mode=TruthfulQAMode.MC1,           # MC1 or MC2
+    n_problems_per_task=None,
+    confinement_instructions_dict=None, # Per-mode custom instructions
+)
+result = benchmark.evaluate(model, batch_size=None)
+```
 
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[HellaSwagTask]` | Task configuration. |
-    | `n_shots` | `int` | Number of few-shot examples (0-10). |
-  </Tab>
+**Format:** Multiple choice  
+**Scoring:** Truth identification score  
+**Modes:**
+- `MC1` — Single correct answer among options
+- `MC2` — Multiple correct answers possible
 
-  <Tab title="TruthfulQA">
-    ## Truthfulness Evaluation
+---
 
-    TruthfulQA tests whether models generate truthful answers to questions where common misconceptions exist. It probes for imitative falsehoods — answers that sound plausible because they reflect popular but incorrect beliefs.
+## BigBenchHard
 
-    - **Two modes:**
-      - **MC1** — Single correct answer among multiple choices
-      - **MC2** — Multiple correct answers may exist
-    - **Metric:** Accuracy per mode
-    - **Focus:** Common misconceptions, conspiracy theories, superstitions, and popular myths
+**Complex reasoning** — A curated set of challenging tasks from the BIG-Bench suite that require multi-step reasoning.
 
-    ### Usage
+```python
+from avaliar.benchmarks import BigBenchHard
+from avaliar.benchmarks.big_bench_hard.task import BigBenchHardTask
 
-    ```python
-    from avaliar.benchmarks import TruthfulQA
-    from avaliar.benchmarks.truthfulqa.task import TruthfulQAMode
+benchmark = BigBenchHard(
+    tasks=None,                         # None = all tasks
+    n_shots=3,                          # Up to 3 (default: 3)
+    n_problems_per_task=None,
+    verbose_mode=False,                 # Print detailed output
+    confinement_instructions_dict=None, # Per-task custom instructions
+)
+result = benchmark.evaluate(model)
+```
 
-    benchmark = TruthfulQA(
-        tasks=[TruthfulQAMode.MC1, TruthfulQAMode.MC2],
-        n_shots=0
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"MC1 Accuracy: {result.mc1_accuracy:.2%}")
-    print(f"MC2 Accuracy: {result.mc2_accuracy:.2%}")
-    ```
+**Format:** Task-specific (includes chain-of-thought prompts)  
+**Scoring:** Exact match
 
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[TruthfulQAMode]` | Evaluation modes (`MC1`, `MC2`, or both). |
-    | `n_shots` | `int` | Number of few-shot examples. |
-  </Tab>
+<Accordion title="Example BigBenchHard tasks">
+  `BOOLEAN_EXPRESSIONS`, `CAUSAL_JUDGEMENT`, `DATE_UNDERSTANDING`, `FORMAL_FALLACIES`, `OBJECT_COUNTING`, `PENGUINS_IN_A_TABLE`, `REASONING_ABOUT_COLORED_OBJECTS`, `SPORTS_UNDERSTANDING`, `TEMPORAL_SEQUENCES`, `WEB_OF_LIES`
+</Accordion>
 
-  <Tab title="BigBenchHard">
-    ## Challenging Reasoning Tasks
+---
 
-    BigBenchHard (BBH) is a curated subset of 23 particularly challenging tasks from the BIG-Bench benchmark suite. These tasks require multi-step reasoning and have been shown to benefit from chain-of-thought prompting.
+## HumanEval
 
-    - **Format:** Varies by task (multiple choice, free-form)
-    - **Supports:** Up to 3-shot prompting with chain-of-thought
-    - **Metric:** Accuracy
+**Code generation** — Tests the ability to generate correct Python functions from docstrings.
 
-    ### Example Tasks
+```python
+from avaliar.benchmarks import HumanEval
+from avaliar.benchmarks.human_eval.task import HumanEvalTask
 
-    `BOOLEAN_EXPRESSIONS`, `CAUSAL_JUDGEMENT`, `DATE_UNDERSTANDING`, `FORMAL_FALLACIES`, `OBJECT_COUNTING`, `PENGUINS_IN_A_TABLE`, `REASONING_ABOUT_COLORED_OBJECTS`, `SPORTS_UNDERSTANDING`, `TEMPORAL_SEQUENCES`, `WEB_OF_LIES`
+benchmark = HumanEval(
+    tasks=None,                         # None = all tasks
+    n=200,                              # Number of samples per problem (default: 200)
+)
+result = benchmark.evaluate(model, k=1)  # pass@k
+```
 
-    ### Usage
+**Format:** Python code generation  
+**Scoring:** pass@k (generated code is executed against test cases)
 
-    ```python
-    from avaliar.benchmarks import BigBenchHard
-    from avaliar.benchmarks.big_bench_hard.task import BigBenchHardTask
-
-    benchmark = BigBenchHard(
-        tasks=[
-            BigBenchHardTask.BOOLEAN_EXPRESSIONS,
-            BigBenchHardTask.CAUSAL_JUDGEMENT,
-            BigBenchHardTask.DATE_UNDERSTANDING
-        ],
-        n_shots=3
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"Accuracy: {result.overall_accuracy:.2%}")
-    ```
-
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[BigBenchHardTask]` | Reasoning tasks to evaluate. |
-    | `n_shots` | `int` | Number of few-shot examples (0-3). Chain-of-thought is included automatically. |
-  </Tab>
-
-  <Tab title="HumanEval">
-    ## Code Generation
-
-    HumanEval evaluates functional code generation by asking models to implement Python functions. The generated code is **actually executed** against test suites to verify correctness, making this a rigorous measure of coding ability.
-
-    - **Format:** Python function implementation from a docstring specification
-    - **Metric:** pass@k (generate k samples, pass if any sample passes all tests)
-    - **Execution:** Code is sandboxed and run against hidden test cases
-
-    ### Usage
-
-    ```python
-    from avaliar.benchmarks import HumanEval
-    from avaliar.benchmarks.human_eval.task import HumanEvalTask
-
-    benchmark = HumanEval(
-        tasks=[HumanEvalTask.DEFAULT],
-        n=1  # number of samples per problem (for pass@k)
-    )
-    result = benchmark.evaluate(my_llm)
-    print(f"pass@1: {result.pass_at_k:.2%}")
-    ```
-
-    | Parameter | Type | Description |
-    |-----------|------|-------------|
-    | `tasks` | `list[HumanEvalTask]` | Task configuration. |
-    | `n` | `int` | Number of code samples to generate per problem for pass@k calculation. |
-
-    <Warning>
-      HumanEval executes generated code in a sandboxed environment. Make sure your evaluation environment supports code execution.
-    </Warning>
-  </Tab>
-</Tabs>
+<Warning>
+  HumanEval executes generated code in a sandboxed environment. Make sure your evaluation environment supports code execution.
+</Warning>
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Running Benchmarks" icon="play" href="/benchmarks/running">
-    Step-by-step guide to running benchmarks against your model.
+    Configuration options, batch generation, and best practices.
   </Card>
-  <Card title="Safety & Bias Evals" icon="flask-vial" href="/benchmarks/evals">
+  <Card title="Safety & Bias Evals" icon="flask-vial" href="/evals/overview">
     Evaluate your model for bias, toxicity, and safety risks.
   </Card>
 </CardGroup>

@@ -73,6 +73,22 @@ class AvaliarBaseLLM(ABC):
 
     If your provider supports batch APIs or you want to add concurrency, override this method to improve benchmark throughput.
   </Accordion>
+  <Accordion title="generate_samples(prompt, n, temperature) -> list[str]" icon="copy">
+    Required by the [BOLD](/evals/bold) and [RealToxicityPrompts](/evals/real-toxicity-prompts) evals, which need multiple diverse samples per prompt. Not needed for benchmarks or other evals.
+
+    ```python
+    def generate_samples(self, prompt: str, n: int, temperature: float) -> list[str]:
+        responses = []
+        for _ in range(n):
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+            )
+            responses.append(response.choices[0].message.content)
+        return responses
+    ```
+  </Accordion>
 </AccordionGroup>
 
 ## Implementation Examples

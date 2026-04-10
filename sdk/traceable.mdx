@@ -216,6 +216,52 @@ async def stream_generate(messages: list):
             yield content
 ```
 
+## Updating token usage
+
+Use `update_current_llm_run` to attach token counts to the current LLM span:
+
+```python
+from avaliar import traceable
+from avaliar.trace import update_current_llm_run
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+@traceable("llm", model="gpt-4o", provider="openai")
+async def generate(messages: list) -> str:
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+    update_current_llm_run(
+        input_tokens=response.usage.prompt_tokens,
+        output_tokens=response.usage.completion_tokens,
+    )
+    return response.choices[0].message.content
+```
+
+<Note>
+  Call `update_current_llm_run` from inside the decorated function, before returning. Token counts appear in the Traces dashboard and are included in cost calculations.
+</Note>
+
+## LLM message extraction
+
+When `span_type="llm"`, the SDK automatically extracts input messages for tracing. It looks for messages in two places:
+
+1. The first positional argument: `generate(messages)`
+2. The `messages` keyword argument: `generate(messages=[...])`
+
+Messages should follow the standard role/content format:
+
+```python
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello!"},
+]
+```
+
+If the SDK cannot find messages in either location, a warning is emitted and the trace is still submitted without message data.
+
 ## How It Works
 
 <Steps>

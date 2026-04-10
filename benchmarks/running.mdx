@@ -1,137 +1,172 @@
 ---
 title: "Running Benchmarks"
-description: "Step-by-step guide to running benchmarks against your model"
+description: "Configuration, best practices, and tips for benchmark evaluation"
 icon: "play"
 ---
 
-Follow these steps to run a benchmark evaluation against your model, inspect the results, and post them to the Avaliar platform.
+## The AvaliarBaseLLM interface
 
-<Steps>
-  <Step title="Implement AvaliarBaseLLM">
-    Create a class that extends `AvaliarBaseLLM` and implements the `generate()` method. This gives the benchmark runner a standard interface to call your model.
-
-    ```python
-    from avaliar.models.base import AvaliarBaseLLM
-    from openai import OpenAI
-
-    class MyLLM(AvaliarBaseLLM):
-        def __init__(self, model: str = "gpt-4o"):
-            self.client = OpenAI()
-            self.model = model
-
-        def generate(self, prompt: str) -> str:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0
-            )
-            return response.choices[0].message.content
-    ```
-
-    <Tip>
-      Use `temperature=0.0` for deterministic results during benchmarking. This ensures consistent scores across runs and makes results reproducible.
-    </Tip>
-
-    See the [AvaliarBaseLLM reference](/sdk/base-llm) for the full interface definition, including optional `batch_generate()` for concurrent execution.
-  </Step>
-
-  <Step title="Choose and Initialize a Benchmark">
-    Import the benchmark class and its task enum, then configure the evaluation parameters.
-
-    ```python
-    from avaliar.benchmarks import MMLU
-    from avaliar.benchmarks.mmlu.task import MMLUTask
-
-    benchmark = MMLU(
-        tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.HIGH_SCHOOL_MATHEMATICS],
-        n_shots=5
-    )
-    ```
-
-    Each benchmark accepts a list of specific tasks (subject areas or problem categories) and a shot count that controls the number of examples included in the prompt for few-shot evaluation.
-  </Step>
-
-  <Step title="Run the Evaluation">
-    Pass your model instance to `benchmark.evaluate()`. The runner sends each test case to your model, collects responses, and computes scores.
-
-    ```python
-    result = benchmark.evaluate(MyLLM())
-    print(f"Overall Accuracy: {result.overall_accuracy:.2%}")
-    ```
-
-    <Note>
-      Benchmark datasets are downloaded from HuggingFace on first run. Subsequent runs use the cached dataset. Make sure you have an internet connection for the initial run.
-    </Note>
-  </Step>
-
-  <Step title="Inspect Results">
-    After evaluation, access the detailed results through the benchmark object.
-
-    ```python
-    # Full predictions DataFrame with inputs, outputs, and scores
-    print(benchmark.predictions)
-
-    # Per-task accuracy breakdown
-    print(benchmark.task_scores)
-    ```
-
-    The `predictions` DataFrame contains every test case with the model's response and whether it was correct. The `task_scores` dictionary provides accuracy broken down by each task or subject area.
-  </Step>
-
-  <Step title="Post Results to Avaliar">
-    Upload the benchmark results to the Avaliar platform for tracking and comparison.
-
-    ```python
-    benchmark.post_results(
-        model_name="gpt-4o",
-        tags=["production", "v1.0"]
-    )
-    ```
-
-    Results appear in the Avaliar dashboard where you can compare across models, view historical trends, and include benchmark data in compliance reports.
-  </Step>
-</Steps>
-
-## Full Example
-
-Here is the complete workflow in a single script:
+Every benchmark requires a model that implements `AvaliarBaseLLM`:
 
 ```python
 from avaliar.models.base import AvaliarBaseLLM
-from avaliar.benchmarks import MMLU
-from avaliar.benchmarks.mmlu.task import MMLUTask
+
+class MyModel(AvaliarBaseLLM):
+    def __init__(self):
+        # Initialize your LLM client
+        ...
+
+    def generate(self, prompt: str) -> str:
+        # Return model response as a string
+        ...
+
+    def batch_generate(self, prompts: list[str], **kwargs) -> list[str]:
+        # Optional: process multiple prompts concurrently
+        ...
+```
+
+See [AvaliarBaseLLM](/sdk/base-llm) for full interface details and provider examples.
+
+## Batch generation
+
+If your model supports parallel requests, implement `batch_generate` for significant speedups. Benchmarks automatically detect and use it when available.
+
+```python
+import concurrent.futures
+from avaliar.models.base import AvaliarBaseLLM
 from openai import OpenAI
 
 
-class MyLLM(AvaliarBaseLLM):
-    def __init__(self, model: str = "gpt-4o"):
+class MyModel(AvaliarBaseLLM):
+    def __init__(self):
         self.client = OpenAI()
-        self.model = model
 
     def generate(self, prompt: str) -> str:
         response = self.client.chat.completions.create(
-            model=self.model,
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
+            temperature=0.0,
         )
         return response.choices[0].message.content
 
+    def batch_generate(self, prompts: list[str], **kwargs) -> list[str]:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+            return list(pool.map(self.generate, prompts))
+```
 
-# Initialize benchmark
+<Tip>
+  Use `temperature=0.0` for deterministic results during benchmarking. This ensures consistent scores across runs.
+</Tip>
+
+## Configuration options
+
+### Few-shot examples
+
+Most benchmarks support few-shot prompting. The `n_shots` parameter controls how many examples are included in the prompt.
+
+```python
 benchmark = MMLU(
-    tasks=[MMLUTask.MACHINE_LEARNING, MMLUTask.HIGH_SCHOOL_MATHEMATICS],
-    n_shots=5
+    tasks=[MMLUTask.MACHINE_LEARNING],
+    n_shots=5,   # Include 5 examples in each prompt
 )
+```
 
-# Run evaluation
-result = benchmark.evaluate(MyLLM())
-print(f"Overall Accuracy: {result.overall_accuracy:.2%}")
-print(f"Task Scores: {benchmark.task_scores}")
+| Benchmark | Max shots |
+|-----------|-----------|
+| MMLU | 5 |
+| HellaSwag | 10 |
+| DROP | 5 |
+| BigBenchHard | 3 |
 
-# Post to Avaliar
+### Limiting test cases
+
+For faster iteration, limit the number of problems evaluated per task:
+
+```python
+benchmark = HellaSwag(
+    tasks=[HellaSwagTask.ACTIVITY_NET],
+    n_problems_per_task=50,  # Only evaluate 50 problems per task
+)
+```
+
+### Custom output instructions
+
+Override the default output format instructions:
+
+```python
+benchmark = MMLU(
+    tasks=[MMLUTask.MACHINE_LEARNING],
+    confinement_instructions="Answer with only the letter (A, B, C, or D).",
+)
+```
+
+## Scoring
+
+### Exact match
+
+MMLU, HellaSwag, and BigBenchHard use exact match scoring. The model's output is normalized (lowercased, punctuation removed) and compared to the expected answer.
+
+### DROP scoring
+
+DROP uses custom metrics that handle:
+- Numerical answers (with tolerance)
+- Span-based answers
+- Multi-span answers
+
+The primary metrics are exact match (EM) and F1 score.
+
+### HumanEval scoring
+
+HumanEval uses pass@k scoring — the generated code is executed against hidden test cases. `k` is the number of code samples generated per problem.
+
+## Accessing results
+
+After evaluation:
+
+```python
+result = benchmark.evaluate(model)
+
+# Overall accuracy
+print(result.overall_accuracy)
+
+# Detailed predictions (pandas DataFrame)
+print(benchmark.predictions)
+# Columns: task, input, prediction, expected_output, score
+
+# Per-task accuracy breakdown
+print(benchmark.task_scores)
+```
+
+<Note>
+  Benchmark datasets are downloaded from HuggingFace on first run and cached locally. Subsequent runs use the cache. Make sure you have an internet connection for the initial run.
+</Note>
+
+## Posting to the dashboard
+
+Send results to Avaliar for tracking and comparison across runs:
+
+```python
 benchmark.post_results(
     model_name="gpt-4o",
-    tags=["production", "v1.0"]
+    tags=["nightly", "v2.1"],
+)
+```
+
+Results appear in the Avaliar dashboard where you can compare models, view historical trends, and include benchmark data in compliance reports.
+
+## Comparing models
+
+Run the same benchmark against multiple models to make data-driven selection decisions:
+
+```python
+from avaliar.benchmarks.compare import compare_models
+
+result1, result2 = compare_models(
+    model1=GPT4o(),
+    model2=Claude(),
+    model1_name="GPT-4o",
+    model2_name="Claude Sonnet",
+    benchmark=MMLU(tasks=[MMLUTask.MACHINE_LEARNING]),
 )
 ```
 
@@ -139,9 +174,9 @@ benchmark.post_results(
 
 <CardGroup cols={2}>
   <Card title="Available Benchmarks" icon="list-check" href="/benchmarks/available">
-    See all 6 benchmark suites with detailed configuration options and examples.
+    Full constructor reference for all 6 benchmarks.
   </Card>
-  <Card title="Safety & Bias Evals" icon="flask-vial" href="/benchmarks/evals">
+  <Card title="Safety & Bias Evals" icon="flask-vial" href="/evals/overview">
     Evaluate your model for bias, toxicity, and safety risks.
   </Card>
 </CardGroup>

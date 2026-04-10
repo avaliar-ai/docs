@@ -12,25 +12,35 @@ When using the Avaliar SDK, you can choose between two detection modes: **local*
 
 ## Local Detection
 
-Local detection runs entirely on **your** infrastructure using **your** OpenAI API key. After a traced function returns, a background thread runs all configured detectors and then posts the complete trace (with detection results) to the Avaliar backend.
+Local detection runs entirely on **your** infrastructure using the `avaliar_eval` package and your OpenAI API key. After a traced function returns, a background thread runs all configured detectors and then posts the complete trace (with detection results) to the Avaliar backend.
 
 ### Requirements
 
+- `pip install avaliar_eval` — the local detection engine
 - The `OPENAI_API_KEY` environment variable must be set in your runtime environment
-- Your OpenAI key must have access to the model used for detection analysis
 
 ### How it works
 
 1. Your traced function executes and returns a result to the caller
 2. A background thread picks up the trace data (prompt + response)
-3. Detection runs locally using your OpenAI API key
+3. Detection runs locally using the `avaliar_eval` package and your OpenAI API key
 4. The complete trace — including detection results — is posted to Avaliar
+
+### Pros and cons
+
+**Pros:**
+- Data stays on your infrastructure until the final trace post
+- Fast feedback loop during development
+- Full control over the detection pipeline
+
+**Cons:**
+- Requires an OpenAI API key (additional cost)
+- Uses your compute resources
+- You manage the `avaliar_eval` dependency and its updates
 
 ### Best for
 
-- **Development and testing** — Get detection results immediately without waiting for backend processing
-- **Full control** — All detection happens on your infrastructure, nothing leaves your network until the final trace is posted
-- **Fast feedback loops** — Results are available as soon as the background thread completes
+Development, testing, and environments where data cannot leave your infrastructure.
 
 ### Example
 
@@ -55,7 +65,7 @@ Cloud detection offloads all analysis to Avaliar's backend infrastructure. The t
 ### Requirements
 
 - No additional API keys or infrastructure needed
-- An active Avaliar API key with SDK scope
+- An active Avaliar API key with SDK scope (already required for tracing)
 
 ### How it works
 
@@ -64,11 +74,21 @@ Cloud detection offloads all analysis to Avaliar's backend infrastructure. The t
 3. Avaliar queues the detection job for asynchronous processing
 4. A backend worker picks up the job, runs all detectors, and stores the results
 
+### Pros and cons
+
+**Pros:**
+- No additional API keys needed
+- No local compute overhead
+- Always uses the latest detector versions automatically
+- Simplest setup
+
+**Cons:**
+- Content is sent to Avaliar's backend for analysis
+- Detection results are not immediately available (async processing)
+
 ### Best for
 
-- **Production deployments** — Minimal overhead on your application, no background threads consuming resources
-- **Simplicity** — No OpenAI key management for detection, no local compute for analysis
-- **Scale** — Avaliar's backend handles detection processing independently of your application's load
+Production deployments where you want minimal infrastructure overhead.
 
 ### Example
 
@@ -88,13 +108,14 @@ def summarize(text: str) -> str:
 
 ## Comparison
 
-| Feature                 | Local                         | Cloud                          |
-| ----------------------- | ----------------------------- | ------------------------------ |
-| Runs on                 | Your infrastructure           | Avaliar servers                |
-| Requires OpenAI key     | Yes                           | No                             |
-| Latency impact          | Minimal (background thread)   | None (async on backend)        |
-| Results available       | Immediately after detection   | After backend processing       |
-| Best for                | Development, testing          | Production                     |
+| | Local | Cloud |
+|---|---|---|
+| **Data location** | Your infrastructure | Avaliar backend |
+| **Extra dependencies** | `avaliar_eval`, OpenAI key | None |
+| **Compute cost** | Your resources | Included in Avaliar plan |
+| **Detector updates** | Manual package updates | Automatic |
+| **Setup complexity** | Medium | Low |
+| **Recommended for** | Development | Production |
 
 <Tip>
   Start with **local** mode during development for fast feedback, then switch to **cloud** in production to minimize overhead on your application.

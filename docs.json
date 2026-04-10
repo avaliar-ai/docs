@@ -50,12 +50,21 @@
             ]
           },
           {
-            "group": "Benchmarks & Evals",
+            "group": "Benchmarks",
             "pages": [
               "benchmarks/overview",
               "benchmarks/running",
-              "benchmarks/available",
-              "benchmarks/evals"
+              "benchmarks/available"
+            ]
+          },
+          {
+            "group": "Evals",
+            "pages": [
+              "evals/overview",
+              "evals/bbq",
+              "evals/bold",
+              "evals/hex-phi",
+              "evals/real-toxicity-prompts"
             ]
           },
           {

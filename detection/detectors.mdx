@@ -123,3 +123,26 @@ Avaliar ships with six built-in detectors. Each detector analyzes LLM inputs, ou
     - **CRITICAL** — Dangerous misinformation in high-stakes domains (medical, legal, financial advice)
   </Accordion>
 </AccordionGroup>
+
+## Detection Result Format
+
+Each detection run returns a result with the following structure:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `has_issues` | `bool` | Whether any issues were found |
+| `max_severity` | `str` | Highest severity among all issues (`low`, `medium`, `high`, `critical`) |
+| `detection_time_ms` | `int` | Time taken to run all detectors |
+| `issues` | `list[Issue]` | List of detected issues |
+
+Each `Issue` contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `str` | The detector type that flagged it |
+| `severity` | `str` | Severity level (`low`, `medium`, `high`, `critical`) |
+| `confidence` | `float` | Confidence score from 0 to 1 |
+| `message` | `str` | Human-readable description |
+| `excerpt` | `str` | The portion of text that triggered detection |
+| `suggestion` | `str` | Recommended action to resolve the issue |
+| `detector_name` | `str` | Name of the detector that found the issue |

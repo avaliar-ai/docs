@@ -1,0 +1,134 @@
+---
+title: "RealToxicityPrompts"
+description: "Toxicity evaluation for open-ended generation"
+icon: "triangle-exclamation"
+---
+
+RealToxicityPrompts measures the tendency of a model to generate toxic, profane, sexually explicit, or insulting content when given real-world prompts. An LLM judge scores each generated continuation.
+
+## Import
+
+```python
+from avaliar.evals.safety import RealToxicityPrompts, RealToxicityPromptsEvalResult
+```
+
+## Constructor
+
+```python
+RealToxicityPrompts(
+    max_prompts=None,                 # int | None — limit total prompts
+    random_seed=42,                   # int — for reproducible sampling
+    k=5,                              # int (1-7) — samples per prompt
+    toxicity_threshold=0.5,           # float (0.0-1.0) — threshold for flagging
+    generation_temperature=0.9,       # float — temperature for model sampling
+    judge_provider=None,              # "openai" | "anthropic" | None
+    judge_model=None,                 # str | None — judge model name
+    judge_temperature=0.0,            # float — judge temperature
+)
+```
+
+<Warning>
+  RealToxicityPrompts requires your model to implement `generate_samples(prompt, n, temperature) -> list[str]` in addition to the standard `generate()` method. See [AvaliarBaseLLM](/sdk/base-llm#generate_samples) for details.
+</Warning>
+
+## Model requirements
+
+```python
+from avaliar.models.base import AvaliarBaseLLM
+from openai import OpenAI
+
+
+class MyModel(AvaliarBaseLLM):
+    def __init__(self):
+        self.client = OpenAI()
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+
+    def generate_samples(
+        self, prompt: str, n: int, temperature: float
+    ) -> list[str]:
+        responses = []
+        for _ in range(n):
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+            )
+            responses.append(response.choices[0].message.content)
+        return responses
+```
+
+## Usage
+
+```python
+rtp = RealToxicityPrompts(
+    max_prompts=200,
+    k=5,
+    toxicity_threshold=0.5,
+    judge_provider="openai",
+    judge_model="gpt-4o",
+)
+
+result = rtp.evaluate(MyModel())
+print(f"Safety score: {result.overall_score}")
+print(f"Expected max toxicity: {result.expected_max_toxicity}")
+print(f"Toxicity probability: {result.toxicity_probability}")
+print(f"Insult probability: {result.insult_probability}")
+```
+
+## Results
+
+### RealToxicityPromptsEvalResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `overall_score` | `float` | Safety score: `1.0 - expected_max_toxicity` |
+| `expected_max_toxicity` | `float` | Expected maximum toxicity across samples |
+| `expected_max_profanity` | `float` | Expected maximum profanity score |
+| `expected_max_sexually_explicit` | `float` | Expected maximum sexually explicit score |
+| `expected_max_insult` | `float` | Expected maximum insult score |
+| `toxicity_probability` | `float` | % of prompts with toxicity ≥ threshold |
+| `profanity_probability` | `float` | % of prompts with profanity ≥ threshold |
+| `sexually_explicit_probability` | `float` | % of prompts with sexually explicit ≥ threshold |
+| `insult_probability` | `float` | % of prompts with insult ≥ threshold |
+
+### Accessing detailed data
+
+```python
+# Per-sample predictions
+print(rtp.predictions)
+# Columns: Prompt Index, Challenging, Prompt,
+#          Sample Index, Sample, Toxicity,
+#          Profanity, Sexually Explicit, Insult
+
+# Per-prompt aggregated metrics
+print(rtp.prompt_metrics)
+
+# Bucketed scores (overall, challenging, non-challenging)
+print(rtp.task_scores)
+```
+
+## Challenging vs non-challenging prompts
+
+The dataset distinguishes between **challenging** prompts (more likely to elicit toxic continuations) and **non-challenging** prompts. Results are broken down by both groups in `task_scores`, so you can see how your model performs on the harder cases.
+
+## How it works
+
+1. Loads prompts from HuggingFace (`allenai/real-toxicity-prompts`).
+2. For each prompt, generates `k` continuations using `generate_samples()`.
+3. An LLM judge scores each continuation on toxicity, profanity, sexually explicit content, and insult (0.0–1.0).
+4. Computes expected maximum toxicity per prompt and probability of exceeding the threshold across all prompts.
+
+## Posting results
+
+```python
+rtp.post_results(
+    model_name="gpt-4o",
+    tags=["toxicity-audit"],
+)
+```
