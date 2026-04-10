@@ -1,107 +1,203 @@
 ---
 title: "Proxy Setup"
-description: "Configure your application to use the Avaliar Proxy"
+description: "Integrate the Avaliar Proxy into your AI agent in minutes"
 icon: "gear"
 ---
 
-Get your application routed through the Avaliar Proxy in four steps. No code changes beyond updating your LLM client's base URL.
+Get your AI agent routed through the Avaliar Proxy in three steps. The only changes required are your endpoint URL and adding your Avaliar API key to the request body.
 
 <Steps>
   <Step title="Get a Proxy API Key">
-    Create an API key with the **proxy** scope from the [Avaliar Dashboard](https://app.avaliar.ai/settings/api-keys).
+    Generate an API key from the [Avaliar Dashboard](https://app.avaliar.ai/settings/api-keys).
 
-    1. Navigate to **Settings > API Keys**
+    1. Navigate to **Settings → API Keys**
     2. Click **Create API Key**
-    3. Select the **proxy** scope
+    3. Select the **Proxy** scope
     4. Copy the generated key — you won't be able to see it again
 
     <Warning>
-      Never expose your proxy API key in client-side code. The key should only be used in server-side applications or backend services.
+      Never expose your Avaliar API key in client-side or browser-based code. Use it only in server-side applications or backend AI agent services.
     </Warning>
   </Step>
 
-  <Step title="Configure Your LLM Client">
-    Point your LLM client's base URL to the Avaliar Proxy endpoint and include your Avaliar API key in the request headers.
+  <Step title="Update Your Endpoint URL">
+    Replace your LLM provider's endpoint URL with the corresponding Avaliar Proxy URL, and add your `api_key` to the request body.
+
+    The proxy has a dedicated endpoint per provider:
+
+    | Provider | Proxy Endpoint |
+    | -------- | -------------- |
+    | OpenAI | `POST https://proxy.avaliar.ai/api/openai_service/chat_completion` |
+    | Anthropic | `POST https://proxy.avaliar.ai/api/anthropic_service/chat_completion` |
+    | Google Gemini | `POST https://proxy.avaliar.ai/api/gemini_service/chat_completion` |
+
+    Your existing provider API key (OpenAI key, Anthropic key, etc.) stays in the request body exactly where it was. Just add `api_key` alongside it.
 
     <CodeGroup>
-      ```python Python (OpenAI SDK)
-      from openai import OpenAI
+      ```python OpenAI
+      import requests
 
-      client = OpenAI(
-          api_key="your-openai-key",
-          base_url="https://proxy.avaliar.ai/v1",
-          default_headers={
-              "X-Avaliar-Key": "your-avaliar-proxy-key"
+      response = requests.post(
+          "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+          json={
+              "api_key": "your-avaliar-api-key",        # Avaliar key — new
+              "openai_api_key": "your-openai-key",       # Your existing OpenAI key
+              "model": "gpt-4o",
+              "messages": [
+                  {"role": "user", "content": "Hello!"}
+              ]
           }
-      )
-
-      response = client.chat.completions.create(
-          model="gpt-4o",
-          messages=[
-              {"role": "user", "content": "Hello, world!"}
-          ]
       )
       ```
 
-      ```javascript Node.js (OpenAI SDK)
-      import OpenAI from "openai";
+      ```python Anthropic
+      import requests
 
-      const client = new OpenAI({
-          apiKey: "your-openai-key",
-          baseURL: "https://proxy.avaliar.ai/v1",
-          defaultHeaders: {
-              "X-Avaliar-Key": "your-avaliar-proxy-key"
+      response = requests.post(
+          "https://proxy.avaliar.ai/api/anthropic_service/chat_completion",
+          json={
+              "api_key": "your-avaliar-api-key",         # Avaliar key — new
+              "anthropic_api_key": "your-anthropic-key", # Your existing Anthropic key
+              "model": "claude-sonnet-4-5",
+              "messages": [
+                  {"role": "user", "content": "Hello!"}
+              ],
+              "max_tokens": 1024
           }
-      });
-
-      const response = await client.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-              { role: "user", content: "Hello, world!" }
-          ]
-      });
+      )
       ```
 
-      ```bash curl
-      curl https://proxy.avaliar.ai/v1/chat/completions \
-        -H "Authorization: Bearer your-openai-key" \
-        -H "X-Avaliar-Key: your-avaliar-proxy-key" \
+      ```python Gemini
+      import requests
+
+      response = requests.post(
+          "https://proxy.avaliar.ai/api/gemini_service/chat_completion",
+          json={
+              "api_key": "your-avaliar-api-key",       # Avaliar key — new
+              "gemini_api_key": "your-gemini-key",      # Your existing Gemini key
+              "model": "gemini-2.5-flash",
+              "messages": [
+                  {"role": "user", "content": "Hello!"}
+              ]
+          }
+      )
+      ```
+
+      ```javascript OpenAI (Node.js)
+      const response = await fetch(
+        "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: "your-avaliar-api-key",
+            openai_api_key: "your-openai-key",
+            model: "gpt-4o",
+            messages: [{ role: "user", content: "Hello!" }]
+          })
+        }
+      );
+      ```
+
+      ```bash curl (OpenAI)
+      curl -X POST https://proxy.avaliar.ai/api/openai_service/chat_completion \
         -H "Content-Type: application/json" \
         -d '{
+          "api_key": "your-avaliar-api-key",
+          "openai_api_key": "your-openai-key",
           "model": "gpt-4o",
-          "messages": [
-            {"role": "user", "content": "Hello, world!"}
-          ]
+          "messages": [{"role": "user", "content": "Hello!"}]
         }'
       ```
     </CodeGroup>
 
-    Your OpenAI API key is passed through to the LLM provider. The `X-Avaliar-Key` header authenticates your request with the Avaliar Proxy.
-  </Step>
-
-  <Step title="Make Requests as Normal">
-    Once configured, use your LLM client exactly as you normally would. Every request is automatically:
-
-    - Checked for prompt injection (synchronous — blocks harmful prompts)
-    - Forwarded to the LLM provider
-    - Stored as a trace with full request/response data
-    - Queued for asynchronous safety detection
-
-    No additional code or decorators are needed. The proxy is fully transparent to your application logic.
+    <Info>
+      If you omit your provider API key (e.g. `openai_api_key`), the proxy will use a server-side key. Contact support to confirm whether this is enabled for your plan.
+    </Info>
   </Step>
 
   <Step title="View Traces in the Dashboard">
-    Open the [Avaliar Dashboard](https://app.avaliar.ai/traces) to see your traces in real time.
+    Open the [Avaliar Dashboard](https://app.avaliar.ai/traces) to see your traces appear in real time.
 
     Each trace includes:
-    - The full prompt and response
-    - Model, provider, and token counts
-    - Latency breakdown including `proxy_overhead_ms`
-    - Detection results and any identified issues
+    - Full prompt and response content
+    - Provider, model, and token counts
+    - End-to-end latency and proxy overhead
+    - Safety detection results and any identified issues
     - Cost estimates
+
+    <Tip>
+      Make a single test request after setup and check the [Traces](https://app.avaliar.ai/traces) page. A trace should appear within a few seconds.
+    </Tip>
   </Step>
 </Steps>
 
-<Tip>
-  You can verify the proxy is working by making a single test request and checking the [Traces](https://app.avaliar.ai/traces) page in the dashboard. The trace should appear within seconds.
-</Tip>
+---
+
+## Request Parameters
+
+All proxy endpoints accept the same parameters as the underlying LLM provider, plus a few Avaliar-specific ones.
+
+### Avaliar-Specific Parameters
+
+| Parameter | Type | Required | Description |
+| --------- | ---- | -------- | ----------- |
+| `api_key` | string | Yes | Your Avaliar API key, generated from the dashboard |
+| `is_confidential` | boolean | No | If `true`, the prompt and response are **not** stored in traces. Defaults to `false` |
+
+### Provider API Key Parameters
+
+| Parameter | Provider | Description |
+| --------- | -------- | ----------- |
+| `openai_api_key` | OpenAI | Your OpenAI API key. If omitted, the proxy uses a server-side key |
+| `anthropic_api_key` | Anthropic | Your Anthropic API key. If omitted, the proxy uses a server-side key |
+| `gemini_api_key` | Gemini | Your Google Gemini API key. If omitted, the proxy uses a server-side key |
+
+All other parameters (model, messages, temperature, max_tokens, etc.) are passed through to the provider unchanged. See the [Supported Models](/proxy/models) page for available model IDs.
+
+---
+
+## Confidential Requests
+
+If a request contains sensitive information that should not be stored, set `is_confidential: true`. The proxy will still forward the request to the LLM provider and count it in your usage metrics, but the prompt and response content will not be saved to Avaliar.
+
+```python
+requests.post(
+    "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+    json={
+        "api_key": "your-avaliar-api-key",
+        "model": "gpt-4o",
+        "messages": [{"role": "user", "content": "Sensitive content here"}],
+        "is_confidential": True   # Prompt and response are not stored
+    }
+)
+```
+
+<Note>
+  Detection does not run on confidential requests. Token counts and latency are still tracked.
+</Note>
+
+---
+
+## Error Handling
+
+If the proxy rejects a request, it returns a JSON error response:
+
+```json
+{
+  "is_successful": false,
+  "message": "Invalid or revoked API key"
+}
+```
+
+Common error codes:
+
+| Status | Cause |
+| ------ | ----- |
+| `401` | Invalid, expired, or revoked Avaliar API key |
+| `400` | Missing required parameters or invalid request body |
+| `422` | Request body failed schema validation |
+| `403` | Request blocked — prompt injection detected |
+| `500` | Internal error or LLM provider failure |
+
+If a request is blocked due to prompt injection, the response will indicate the block reason. The blocked request is still recorded as a trace on the Avaliar platform.

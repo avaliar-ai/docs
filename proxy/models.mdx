@@ -1,0 +1,70 @@
+---
+title: "Supported Models"
+description: "All LLM models available through the Avaliar Proxy"
+icon: "microchip"
+---
+
+The Avaliar Proxy supports the following models across OpenAI, Anthropic, and Google Gemini. Use the exact model ID shown below in your requests.
+
+---
+
+## OpenAI
+
+| Model ID | Description |
+| -------- | ----------- |
+| `gpt-4o` | GPT-4o — flagship multimodal model |
+| `gpt-4o-mini` | GPT-4o Mini — fast and cost-efficient |
+| `gpt-4.1` | GPT-4.1 |
+| `gpt-4.1-mini` | GPT-4.1 Mini |
+| `gpt-4.1-nano` | GPT-4.1 Nano — lightest GPT-4.1 variant |
+| `gpt-5` | GPT-5 |
+| `gpt-5-mini` | GPT-5 Mini |
+| `gpt-5-nano` | GPT-5 Nano |
+| `gpt-5.1` | GPT-5.1 |
+
+---
+
+## Anthropic (Claude)
+
+| Model ID | Description |
+| -------- | ----------- |
+| `claude-opus-4-6` | Claude Opus 4.6 — most capable |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6 — balanced performance |
+| `claude-opus-4-5` | Claude Opus 4.5 |
+| `claude-sonnet-4-5` | Claude Sonnet 4.5 |
+| `claude-haiku-4-5` | Claude Haiku 4.5 — fastest, most compact |
+| `claude-opus-4-1` | Claude Opus 4.1 |
+
+---
+
+## Google Gemini
+
+| Model ID | Description |
+| -------- | ----------- |
+| `gemini-2.5-pro` | Gemini 2.5 Pro — most capable Gemini model |
+| `gemini-2.5-flash` | Gemini 2.5 Flash — fast and efficient |
+| `gemini-2.5-lite` | Gemini 2.5 Lite — lightest 2.5 variant |
+| `gemini-2.0-pro-exp` | Gemini 2.0 Pro (Experimental) |
+| `gemini-1.5-pro` | Gemini 1.5 Pro |
+| `gemini-1.5-flash` | Gemini 1.5 Flash |
+
+---
+
+## Using a Model
+
+Pass the model ID in the `model` field of your request:
+
+```python
+requests.post(
+    "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+    json={
+        "api_key": "your-avaliar-api-key",
+        "model": "gpt-4o",           # Model ID from the table above
+        "messages": [...]
+    }
+)
+```
+
+<Note>
+  If you request a model that is not supported, the proxy will return a `400` error. Make sure to use the exact model ID as listed in the tables above.
+</Note>

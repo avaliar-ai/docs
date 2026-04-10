@@ -37,7 +37,8 @@
             "pages": [
               "proxy/overview",
               "proxy/setup",
-              "proxy/how-it-works"
+              "proxy/how-it-works",
+              "proxy/models"
             ]
           },
           {
