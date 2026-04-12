@@ -8,7 +8,6 @@
     "dark": "#83029b"
   },
   "favicon": "/favicon.svg",
-  "openapi": ["/api-reference/openapi.json"],
   "navigation": {
     "tabs": [
       {
@@ -83,104 +82,6 @@
             "group": "Architecture",
             "pages": [
               "architecture/overview"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "groups": [
-          {
-            "group": "Overview",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Traces",
-            "pages": [
-              "api-reference/traces/create-sdk-trace",
-              "api-reference/traces/list-proxy-traces",
-              "api-reference/traces/list-sdk-traces",
-              "api-reference/traces/get-proxy-trace",
-              "api-reference/traces/get-sdk-trace",
-              "api-reference/traces/get-trace-tree",
-              "api-reference/traces/get-trace-issues",
-              "api-reference/traces/get-stats"
-            ]
-          },
-          {
-            "group": "Proxy",
-            "pages": [
-              "api-reference/proxy/validate-key",
-              "api-reference/proxy/store-request",
-              "api-reference/proxy/store-response"
-            ]
-          },
-          {
-            "group": "API Keys",
-            "pages": [
-              "api-reference/api-keys/list",
-              "api-reference/api-keys/create",
-              "api-reference/api-keys/get",
-              "api-reference/api-keys/update",
-              "api-reference/api-keys/revoke",
-              "api-reference/api-keys/rotate",
-              "api-reference/api-keys/usage"
-            ]
-          },
-          {
-            "group": "Analytics",
-            "pages": [
-              "api-reference/analytics/overview",
-              "api-reference/analytics/requests",
-              "api-reference/analytics/costs",
-              "api-reference/analytics/issues",
-              "api-reference/analytics/models",
-              "api-reference/analytics/latency"
-            ]
-          },
-          {
-            "group": "Alerts",
-            "pages": [
-              "api-reference/alerts/list",
-              "api-reference/alerts/create",
-              "api-reference/alerts/get",
-              "api-reference/alerts/update",
-              "api-reference/alerts/delete",
-              "api-reference/alerts/stats",
-              "api-reference/alerts/history",
-              "api-reference/alerts/test"
-            ]
-          },
-          {
-            "group": "Benchmarks",
-            "pages": [
-              "api-reference/benchmarks/create",
-              "api-reference/benchmarks/list-results",
-              "api-reference/benchmarks/list-predictions"
-            ]
-          },
-          {
-            "group": "Reports",
-            "pages": [
-              "api-reference/reports/generate",
-              "api-reference/reports/list",
-              "api-reference/reports/get",
-              "api-reference/reports/download"
-            ]
-          },
-          {
-            "group": "Organization",
-            "pages": [
-              "api-reference/organization/get",
-              "api-reference/organization/update",
-              "api-reference/organization/list-members",
-              "api-reference/organization/invite-member",
-              "api-reference/organization/update-member",
-              "api-reference/organization/remove-member",
-              "api-reference/organization/list-invitations",
-              "api-reference/organization/cancel-invitation"
             ]
           }
         ]

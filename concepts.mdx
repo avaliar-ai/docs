@@ -27,22 +27,9 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
     | `agent` | An autonomous agent step that may contain child spans |
     | `generic` | Any other operation you want to track |
 
-    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences. Parent-child relationships are tracked automatically using Python's `contextvars` — no manual wiring needed.
+    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences. Parent-child relationships are tracked automatically — no manual wiring needed.
 
     → [Traceable Decorator](/sdk/traceable)
-  </Accordion>
-
-  <Accordion title="RunTree" icon="sitemap">
-    Internally, each span is represented as a **RunTree** node. The SDK builds a tree from these nodes as your code executes, using `contextvars` to track which span is currently active. When a `@traceable` function is called, the SDK:
-
-    1. Creates a new `RunTree` node linked to the current parent (if any)
-    2. Sets it as the active span in the current async context
-    3. Executes your function
-    4. Submits the complete trace tree to Avaliar in a background thread
-
-    All span and trace identifiers use **UUIDv7** — time-ordered UUIDs that sort chronologically, avoid collisions within the same millisecond, and keep database indexes compact.
-
-    → [@traceable Decorator](/sdk/traceable)
   </Accordion>
 
   <Accordion title="Detection" icon="shield-halved">

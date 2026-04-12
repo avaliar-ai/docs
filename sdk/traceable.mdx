@@ -266,7 +266,7 @@ If the SDK cannot find messages in either location, a warning is emitted and the
 
 <Steps>
   <Step title="Context Propagation">
-    When a `@traceable` function is called, the decorator creates a new span and stores it in a **context variable**. Any nested `@traceable` calls within the same execution context automatically inherit the parent span.
+    When a `@traceable` function is called, a new span is created and linked to any active parent span. Nested `@traceable` calls automatically inherit the parent, building the trace tree as your code executes.
   </Step>
   <Step title="Trace Tree Construction">
     As your code executes, the SDK builds a **trace tree** from the parent-child relationships between spans. Each span records its inputs, outputs, start time, end time, and any associated metadata.

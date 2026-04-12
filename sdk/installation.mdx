@@ -103,33 +103,6 @@ The `@traceable` decorator automatically captures inputs, outputs, latency, and 
   You can get your API key from the **API Keys** page in the [Avaliar dashboard](https://app.avaliar.ai). Each key is scoped to your organization and can be revoked at any time.
 </Note>
 
-## Contributing / Development
-
-To work on the SDK itself:
-
-```bash
-git clone https://github.com/avaliar-ai/python-sdk.git
-cd python-sdk
-pip install -e ".[dev]"
-pre-commit install
-```
-
-### Dev commands
-
-```bash
-# Type checking
-mypy avaliar/
-
-# Linting
-ruff check avaliar/
-
-# Formatting
-ruff format avaliar/
-
-# Run all pre-commit hooks
-pre-commit run --all-files
-```
-
 ## Next Steps
 
 <CardGroup cols={2}>
