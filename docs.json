@@ -28,6 +28,7 @@
               "sdk/traceable",
               "sdk/detection",
               "sdk/advanced-tracing",
+              "sdk/tool-call-tracing",
               "sdk/base-llm",
               "sdk/error-handling",
               "sdk/example-app",
