@@ -1,0 +1,287 @@
+---
+title: "Contributing"
+description: "Set up a local development environment and contribute to the Avaliar Python SDK"
+icon: "code-pull-request"
+---
+
+## Overview
+
+The Avaliar Python SDK is open source and welcomes contributions. This guide covers everything you need to get a local development environment running, submit changes, and follow the project's code standards.
+
+**Repository:** [github.com/avaliar-ai/python-sdk](https://github.com/avaliar-ai/python-sdk)
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|---|---|---|
+| Python | 3.13+ | Required. Earlier versions are not supported. |
+| Git | Any | For cloning and branching. |
+| `uv` | Latest | Recommended package manager. See install instructions below. |
+
+### Install uv
+
+The SDK project uses `uv` for dependency management. Install it with:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Or with pip:
+
+```bash
+pip install uv
+```
+
+## Setup
+
+### 1. Fork and Clone
+
+Fork the repo on GitHub, then clone your fork:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/python-sdk.git
+cd python-sdk
+```
+
+### 2. Install dependencies
+
+Install the package in editable mode with development dependencies:
+
+```bash
+uv sync --dev
+```
+
+This installs the SDK itself, plus all dev tools: `mypy`, `ruff`, and `pre-commit`.
+
+Alternatively, using pip:
+
+```bash
+pip install -e ".[dev]"
+```
+
+### 3. Install pre-commit hooks
+
+```bash
+uv run pre-commit install
+```
+
+Pre-commit runs type checking and linting automatically before every commit.
+
+### 4. Set environment variables
+
+```bash
+export AVALIAR_API_KEY="your-api-key-from-avaliar.ai"
+export OPENAI_API_KEY="your-openai-key"  # Only needed for local detection mode
+```
+
+## Project Structure
+
+```
+python-sdk/
+├── avaliar/
+│   ├── __init__.py              # Public exports: traceable, AvaliarBaseLLM, PromptBlockedError
+│   ├── trace.py                 # @traceable decorator — the core entry point
+│   ├── run_tree.py              # RunTree class, span lifecycle, context tracking
+│   ├── client.py                # HTTP client with retry logic
+│   ├── schemas.py               # Pydantic models (Run, GenerationInfo, LLMInputMessage)
+│   ├── detectors/
+│   │   ├── __init__.py          # Exports: DetectorType, Detector
+│   │   └── evaluator.py         # Detector class with rich console output
+│   ├── _evals/
+│   │   └── eval.py              # DetectionRunner — spawns detection threads (internal)
+│   ├── models/
+│   │   └── base.py              # AvaliarBaseLLM abstract class and TestCase model
+│   ├── benchmarks/
+│   │   ├── base.py              # BaseBenchmark abstract class
+│   │   ├── metrics.py           # Scoring functions (exact match, F1, etc.)
+│   │   ├── mmlu/                # MMLU benchmark
+│   │   ├── drop/                # DROP benchmark
+│   │   ├── hellaswag/           # HellaSwag benchmark
+│   │   ├── truthful_qa/         # TruthfulQA benchmark
+│   │   ├── big_bench_hard/      # BigBenchHard benchmark
+│   │   └── human_eval/          # HumanEval benchmark
+│   ├── evals/
+│   │   ├── bias/bbq/            # BBQ bias eval
+│   │   ├── bias/bold/           # BOLD eval
+│   │   └── safety/              # HExPHI and RealToxicityPrompts evals
+│   ├── utils/
+│   │   └── _uuid.py             # UUIDv7 generation
+│   └── errors/
+│       └── client_errors.py     # Exception hierarchy
+├── pyproject.toml               # Package config, deps, tool settings
+└── README.md
+```
+
+## Dev Commands
+
+Run these from the project root:
+
+```bash
+# Type checking
+uv run mypy avaliar/
+
+# Linting (with auto-fix)
+uv run ruff check avaliar/
+
+# Formatting
+uv run ruff format avaliar/
+
+# Run all pre-commit hooks against all files
+uv run pre-commit run --all-files
+```
+
+## Code Standards
+
+### Formatting and Linting
+
+The project uses `ruff` for both linting and formatting. Key settings (from `pyproject.toml`):
+
+- Line length: **79 characters**
+- Quote style: **double quotes**
+- Python target: **3.13**
+
+Run `ruff format avaliar/` before committing. Pre-commit does this automatically.
+
+### Type Annotations
+
+All functions must have complete type annotations. The project uses `mypy` in strict mode with pydantic plugin:
+
+```python
+# Good
+async def generate(messages: list[dict[str, str]]) -> str: ...
+
+# Bad — missing return type
+async def generate(messages):  ...
+```
+
+Run `mypy avaliar/` to check before committing. Pre-commit does this automatically.
+
+### No bare `except`
+
+Always catch specific exceptions or at minimum `Exception`:
+
+```python
+# Good
+try:
+    result = risky_call()
+except ValueError as e:
+    handle(e)
+
+# Bad
+try:
+    result = risky_call()
+except:
+    pass
+```
+
+### Public API surface
+
+The public API is whatever is exported from `avaliar/__init__.py`. Currently:
+
+```python
+from avaliar import traceable, AvaliarBaseLLM, PromptBlockedError
+from avaliar.detectors import DetectorType, Detector
+from avaliar.models.base import AvaliarBaseLLM, TestCase
+from avaliar.errors.client_errors import AvaliarError  # and subclasses
+```
+
+If you're adding a new public symbol, update `__init__.py` and document it.
+
+## Making Changes
+
+### Branch naming
+
+```bash
+git checkout -b feat/my-new-feature
+git checkout -b fix/detector-crash-on-empty-input
+```
+
+### Commit style
+
+Use short, descriptive commit messages in the imperative mood:
+
+```
+Add batch_generate support to Detector class
+Fix token extraction for Anthropic response format
+Support sync generators in @traceable decorator
+```
+
+### Pull Requests
+
+1. Make sure `pre-commit run --all-files` passes cleanly
+2. Add or update docstrings for any new or changed public methods
+3. Include a short description of what changed and why
+4. Link any relevant issues
+
+## Adding a New Benchmark
+
+Benchmarks live in `avaliar/benchmarks/`. To add one:
+
+1. Create a new directory: `avaliar/benchmarks/your_benchmark/`
+2. Implement `task.py` (an enum of benchmark tasks), `template.py` (prompt formatting), and `your_benchmark.py` (the main class)
+3. Inherit from `BaseBenchmark` and implement `load_benchmark_dataset()` and `evaluate()`
+4. Export from `avaliar/benchmarks/__init__.py`
+
+```python
+from avaliar.benchmarks.base import BaseBenchmark, BaseBenchmarkResult
+from avaliar.models.base import AvaliarBaseLLM
+
+
+class MyBenchmark(BaseBenchmark):
+    def __init__(self, tasks: list[MyTask], n_shots: int = 5) -> None:
+        super().__init__()
+        self.tasks = tasks
+        self.n_shots = n_shots
+        self.overall_score = None
+
+    def load_benchmark_dataset(self, task: "MyTask") -> list:
+        from datasets import load_dataset
+        dataset = load_dataset("owner/dataset-name", task.value)
+        # ... transform into TestCase list
+
+    def evaluate(self, model: AvaliarBaseLLM) -> BaseBenchmarkResult:
+        # run predictions, compute accuracy
+        self.overall_score = accuracy
+        return BaseBenchmarkResult(overall_accuracy=accuracy)
+```
+
+## Adding a New Detector
+
+Detectors are provided by the `avaliar_eval` package (a separate dependency). The SDK itself does not implement detection algorithms — it routes data to `avaliar_eval` and handles the results.
+
+If you want to extend detection, contribute to the `avaliar_eval` package or open an issue describing the new detector type.
+
+## Troubleshooting Local Setup
+
+**`ModuleNotFoundError: No module named 'avaliar_eval'`**
+
+The detection engine is a separate package. Install it:
+
+```bash
+pip install avaliar_eval
+```
+
+Or install the SDK with the optional detection extra (once added):
+
+```bash
+pip install "avaliar-python-sdk[detection]"
+```
+
+**`mypy` errors on build directory**
+
+The `build/` directory is excluded from mypy checks by default in `pyproject.toml`. If you see errors there, ensure your mypy config matches:
+
+```toml
+[tool.mypy]
+exclude = ["build"]
+```
+
+**Pre-commit hook fails on first run**
+
+Pre-commit downloads hook dependencies on first run. If it fails:
+
+```bash
+uv run pre-commit clean
+uv run pre-commit install
+uv run pre-commit run --all-files
+```

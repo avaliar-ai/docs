@@ -27,8 +27,11 @@
               "sdk/installation",
               "sdk/traceable",
               "sdk/detection",
+              "sdk/advanced-tracing",
               "sdk/base-llm",
-              "sdk/error-handling"
+              "sdk/error-handling",
+              "sdk/example-app",
+              "sdk/contributing"
             ]
           },
           {
