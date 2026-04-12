@@ -1,0 +1,315 @@
+---
+title: "Policies"
+description: "Define and enforce governance rules across your AI systems"
+icon: "scroll"
+---
+
+## Overview
+
+Policies let you define governance rules that automatically evaluate every AI trace your system produces. When a trace matches a rule — a hallucination is detected, PII leaks into a response, or a prompt injection attempt is made — the policy fires, records a violation, and takes the actions you configured.
+
+Policies are the proactive layer of Avaliar. Alerts tell you when something is wrong after the fact; policies watch every trace and immediately flag the ones that matter.
+
+Manage policies at [app.avaliar.ai/policies](https://app.avaliar.ai/policies).
+
+<Info>
+  Policies require the **Developer Pro** plan. Upgrade your organization to create and import policies.
+</Info>
+
+## How Policies Work
+
+Every time a trace is processed by Avaliar, all active policies in your organization are evaluated against it. If the trace matches a policy's conditions, a **violation** is recorded and the policy's configured actions are executed.
+
+The evaluation is automatic — you don't need to trigger it manually. Any trace coming in from the [Python SDK](/sdk/installation) or the [Proxy](/proxy/overview) is checked.
+
+## Policy Types
+
+Policies are organized into four types based on what they govern.
+
+<AccordionGroup>
+  <Accordion title="Content" icon="shield">
+    Watches for harmful, unsafe, or inappropriate content in AI outputs. Use content policies to catch toxicity, bias, misuse, misinformation, and prompt injection attempts.
+
+    **Best for:** Moderation, safety guardrails, and responsible AI use.
+  </Accordion>
+
+  <Accordion title="Compliance" icon="scale-balanced">
+    Ensures your AI systems stay aligned with regulatory and legal standards. Compliance policies typically watch for PII/PHI exposure, harmful content, and false claims that could create legal liability.
+
+    **Best for:** HIPAA, GDPR, FINRA, COPPA, and internal data protection requirements.
+  </Accordion>
+
+  <Accordion title="Threshold" icon="gauge">
+    Triggers when detected issues cross a severity level. Use threshold policies to enforce a minimum quality bar — for example, blocking any trace with a critical-severity issue before it reaches production.
+
+    **Best for:** Production readiness gates and quality assurance pipelines.
+  </Accordion>
+
+  <Accordion title="Usage" icon="activity">
+    Monitors operational patterns such as off-topic requests, high-cost misuse, or excessive usage outside the agent's intended purpose.
+
+    **Best for:** Cost control, scope enforcement, and operational governance.
+  </Accordion>
+</AccordionGroup>
+
+## Conditions and Rules
+
+Each policy has a set of **rules** that define what to watch for. A rule specifies an issue type and an optional minimum severity threshold.
+
+| Issue Type | What It Detects |
+|---|---|
+| `toxicity` | Harmful, offensive, or inappropriate language |
+| `hallucination` | Fabricated facts, fake citations, invented data |
+| `bias` | Discriminatory or unfair outputs |
+| `pii_leak` | Names, emails, phone numbers, addresses, and other personal data |
+| `prompt_injection` | Instruction override and manipulation attempts |
+| `misinformation` | Verifiably false or misleading claims |
+| `misuse` | Responses outside the AI's intended purpose |
+
+Rules are combined using **AND** or **OR** logic:
+
+- **OR** — the policy fires if *any* rule matches (most common)
+- **AND** — the policy fires only if *all* rules match
+
+For each rule, you can optionally set a minimum **severity** (`low`, `medium`, `high`, `critical`). Setting `medium+` means the policy only fires if the issue is at medium severity or higher.
+
+## Enforcement Modes
+
+The enforcement mode controls what happens when a policy condition is met.
+
+| Mode | Behavior |
+|---|---|
+| **Monitor** | Record the violation silently. Nothing changes in the trace flow — you get visibility without disruption. |
+| **Warn** | Record the violation and surface a warning. Useful when you want to flag issues without blocking. |
+
+<Tip>
+  Start new policies in **Monitor** mode to understand how often they fire before switching to stricter enforcement.
+</Tip>
+
+## Actions
+
+When a policy fires, it can execute one or more actions:
+
+| Action | Description |
+|---|---|
+| **Notify** | Send an in-app notification when a violation occurs |
+| **Quarantine** | Flag the trace for immediate review |
+
+## Priority Levels
+
+Priority indicates the urgency of the policy and affects how violations are surfaced in the dashboard.
+
+| Priority | Use Case |
+|---|---|
+| **Low** | Background monitoring. Informational only. |
+| **Normal** | Standard governance policies. |
+| **High** | Important rules where violations should be investigated promptly. |
+| **Critical** | Active safety and compliance requirements that demand immediate attention. |
+
+## Policy Lifecycle
+
+A policy moves through a defined set of states.
+
+```
+Draft → (optional) Pending Review → Active → Paused
+```
+
+| Status | Meaning |
+|---|---|
+| **Draft** | Created but not yet running. No traces are evaluated against it. |
+| **Active** | Running. Every incoming trace is evaluated against this policy. |
+| **Paused** | Temporarily stopped. Violations stop accumulating until you reactivate it. |
+| **Deprecated** | Retired. Kept for historical reference but no longer enforced. |
+
+You can **activate**, **pause**, and **delete** any policy from the Policies list or from the policy detail view.
+
+## Approval Workflow
+
+For organizations that need a review step before a policy goes live, Avaliar includes a built-in approval workflow.
+
+1. Create a policy in Draft state
+2. Click **Submit for Review** — the policy moves to `Pending Review`
+3. A reviewer on your team **Approves** or **Rejects** the policy
+4. Approved policies are automatically activated
+
+This workflow is useful when governance changes need sign-off from a compliance or security lead before taking effect.
+
+## Version History and Rollback
+
+Every time you edit a policy, Avaliar saves a version snapshot. You can view the full history of a policy's changes and roll back to any previous version at any time.
+
+To access version history:
+
+1. Click a policy to open the detail view
+2. Go to the **History** tab
+3. Each entry shows the change type, summary, and timestamp
+4. Click **Rollback** on any entry to restore that version
+
+This makes it safe to experiment with policy changes — if something breaks, you can immediately revert.
+
+## Templates
+
+The **Templates** tab provides a library of pre-built policies for common use cases. Using a template creates a new Draft policy pre-filled with the relevant conditions and actions — you can review and customize it before activating.
+
+Templates are grouped into four categories:
+
+<AccordionGroup>
+  <Accordion title="Security" icon="shield-halved">
+    Policies for defending against threats and malicious behavior:
+
+    - **Prompt Injection Defense** — Block and alert on injection and jailbreak attempts
+    - **PII/PHI Data Protection** — Flag personally identifiable or health information in responses
+    - **Toxic Content Shield** — Detect harmful or inappropriate AI-generated content
+    - **Misuse Prevention** — Alert when AI is being used outside its intended scope
+  </Accordion>
+
+  <Accordion title="Compliance" icon="scale-balanced">
+    Policies pre-configured for regulatory frameworks:
+
+    - **HIPAA Compliance** — PHI exposure and PII detection for healthcare data
+    - **GDPR Compliance** — EU personal data protection
+    - **Financial Services (FINRA)** — Prevent unqualified investment advice and hallucinations in financial responses
+    - **Children's Safety (COPPA)** — Block harmful content and data collection for child-focused applications
+  </Accordion>
+
+  <Accordion title="Quality" icon="sparkles">
+    Policies for monitoring AI output quality and accuracy:
+
+    - **Hallucination Guard** — Detect fabricated facts and inaccuracies
+    - **Bias & Fairness** — Monitor for discriminatory outputs
+    - **Misinformation Prevention** — Flag false or misleading information
+  </Accordion>
+
+  <Accordion title="Operations" icon="activity">
+    Broad governance and operational policies:
+
+    - **Full Governance Suite** — Catch-all policy that monitors all critical and high-severity issues
+    - **Production Readiness Gate** — Alert on any critical issue before scaling to production
+  </Accordion>
+</AccordionGroup>
+
+## Sandbox Testing
+
+Before deploying a policy, use the **Sandbox** tab to test it against a sample prompt and response without affecting live data.
+
+1. Go to **Policies → Sandbox**
+2. Select a policy to test against (or paste custom conditions)
+3. Enter a prompt and an optional AI response
+4. Click **Run Test**
+
+The sandbox runs the full detection pipeline and shows you:
+
+- Whether the policy **would fire** (`WOULD FIRE` or `PASS`)
+- Which rules matched
+- All detected issues with severity, confidence score, and the specific detector that found them
+
+This is the safest way to validate a policy configuration before it goes live.
+
+## Historical Simulation
+
+The **Simulate** feature lets you replay a policy against your existing trace history to see how it would have performed.
+
+1. Open a policy and go to the **Simulate** tab
+2. Choose a time window (last 7, 14, 30, 60, or 90 days)
+3. Click **Run Simulation**
+
+Avaliar returns:
+
+| Metric | Description |
+|---|---|
+| **Traces Evaluated** | Total traces in the selected time window |
+| **Would Have Matched** | Number of traces that would have triggered the policy |
+| **Match Rate** | Percentage of traces that would have fired |
+| **By Issue Type** | Breakdown of which issue types drove the matches |
+| **Sample Traces** | A set of example trace IDs that would have matched |
+
+Use simulation to tune severity thresholds and understand how noisy a policy will be before you activate it.
+
+## Violations
+
+When an active policy fires, it creates a **violation** — a record linking the policy to the specific trace that triggered it.
+
+Each violation has three states:
+
+| Status | Meaning |
+|---|---|
+| **Open** | New violation that has not been reviewed |
+| **Acknowledged** | Someone on your team has seen it and is aware |
+| **Resolved** | The issue has been investigated and closed |
+
+### Managing Violations
+
+View all violations across all policies in **Policies → Violations**. You can filter by `open`, `acknowledged`, or `resolved`.
+
+Each violation card shows:
+- The policy that fired
+- The trace ID (links directly to the trace in the Trace Explorer)
+- The conditions that matched
+- The severity
+- When it was triggered
+
+For open violations, you can **Acknowledge** them to signal awareness, or **Resolve** them once the issue is addressed.
+
+## Policy-as-Code (Export and Import)
+
+Policies can be exported and imported as JSON bundles, making it possible to version-control your governance configuration, share policies across organizations, or automate policy deployment.
+
+### Exporting Policies
+
+Click **Export Policies** on the Policies page to download all your policies as a single JSON bundle. To export a single policy, open its detail view and click **Export**.
+
+The exported bundle format looks like this:
+
+```json
+{
+  "version": "1.0",
+  "exported_at": "2026-04-12T00:00:00Z",
+  "source_organization": "Your Organization",
+  "policies": [
+    {
+      "name": "PII/PHI Data Protection",
+      "description": "Flag any PII or health information in AI responses",
+      "policy_type": "compliance",
+      "enforcement_mode": "monitor",
+      "conditions": {
+        "logic": "OR",
+        "rules": [
+          { "type": "issue_detected", "issue_type": "pii_leak" }
+        ]
+      },
+      "actions": [
+        { "type": "notify", "channels": ["in_app"] },
+        { "type": "quarantine" }
+      ],
+      "priority": "critical"
+    }
+  ]
+}
+```
+
+### Importing Policies
+
+On the **New Policy** page, select **Import from JSON** to upload a policy bundle. You can:
+
+- **Validate** the bundle first (dry-run) to check for errors without applying changes
+- Choose a **conflict strategy** (`skip`, `overwrite`, or `rename`) for policies that share a name with existing ones
+- Optionally **auto-activate** all imported policies immediately
+
+This makes it straightforward to promote a policy set from a staging environment to production, or to share a governance baseline across multiple organizations.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Alerts" icon="bell" href="/platform/alerts">
+    Set up reactive alerts that fire when metrics cross thresholds — a complement to proactive policies.
+  </Card>
+  <Card title="Detection" icon="radar" href="/detection/overview">
+    Learn about the detectors that power policy conditions and how they analyze your traces.
+  </Card>
+  <Card title="Reports" icon="file-chart-column" href="/platform/reports">
+    Generate compliance reports that include policy violation history.
+  </Card>
+  <Card title="Traces" icon="route" href="/platform/traces">
+    Explore the traces that policy violations link back to.
+  </Card>
+</CardGroup>

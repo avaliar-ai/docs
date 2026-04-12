@@ -73,6 +73,7 @@
               "platform/traces",
               "platform/analytics",
               "platform/alerts",
+              "platform/policies",
               "platform/reports",
               "platform/team",
               "platform/api-keys"
