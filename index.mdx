@@ -27,7 +27,7 @@ Avaliar follows a three-stage lifecycle that takes every LLM interaction from ra
     Instrument your application with the `@traceable` decorator or route traffic through the Avaliar Proxy. Every request and response is recorded as a structured trace with full metadata, including model, provider, latency, and token counts.
   </Step>
   <Step icon="magnifying-glass" title="Detect">
-    Traces are automatically passed through the detection pipeline. Six built-in detectors analyze every input and output for safety issues — prompt injection, jailbreaks, toxicity, PII, bias, and hallucinations.
+    Traces are automatically passed through the detection pipeline. Ten built-in detectors analyze every input and output for safety issues — prompt injection (covering jailbreaks and SQL injection), toxicity, PII, hallucination, bias, misinformation, misuse, graphic content, illegal activities, and personal safety.
   </Step>
   <Step icon="triangle-exclamation" title="Alert">
     When a detector finds an issue, Avaliar scores its severity and evaluates it against your alert rules. Notifications are dispatched to your configured channels so your team can investigate and respond immediately.
