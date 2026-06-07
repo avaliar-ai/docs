@@ -1,126 +1,255 @@
 ---
 title: "Quickstart"
-description: "Get up and running with Avaliar in 5 minutes"
+description: "Start monitoring your LLM calls with Avaliar in 5 minutes — via the Proxy API or the Python SDK"
 icon: "rocket"
 ---
 
-Follow these steps to install the Avaliar SDK, trace your first LLM call, and enable safety detection.
+There are **two ways** to send your LLM traffic to Avaliar. Both capture every
+request and response as a trace and run safety detection — pick the one that
+fits your stack.
 
-<Steps>
-  <Step title="Install the SDK">
-    Install the Avaliar Python SDK from PyPI.
+<CardGroup cols={2}>
+  <Card title="Proxy API" icon="server">
+    Route your LLM calls through Avaliar's endpoint. **No SDK, no decorators** —
+    swap your provider URL and add your Avaliar key. Works with any language.
+    <br />Best for: quick setup, non-Python apps, blocking prompt injection.
+  </Card>
+  <Card title="Python SDK" icon="python">
+    Wrap your LLM functions with the `@traceable` decorator. **Code-native** and
+    gives you local *or* cloud detection.
+    <br />Best for: Python apps, the free plan, fine-grained tracing.
+  </Card>
+</CardGroup>
 
-    ```bash
-    pip install avaliar-python-sdk
-    ```
-  </Step>
+## Which should I use?
 
-  <Step title="Get Your API Key">
-    1. Open the [Avaliar Dashboard](https://app.avaliar.ai).
-    2. Navigate to **Settings** > **API Keys**.
-    3. Click **Create Key** and select the `sdk` scope.
-    4. Copy the generated key.
+| | Proxy API | Python SDK |
+| --- | --- | --- |
+| **How you integrate** | Change your endpoint URL | Add a `@traceable` decorator |
+| **Language** | Any (HTTP) | Python |
+| **Code changes** | None beyond the URL | Decorate your LLM functions |
+| **Detection** | Cloud | Local **or** Cloud |
+| **Blocks prompt injection** | Yes (before it reaches the LLM) | No |
+| **Plan required** | Pro | Free |
 
-    <Warning>
-      Store your API key securely. Treat it like a password and never commit it to source control.
-    </Warning>
-  </Step>
+<Tip>
+  Not sure? If you're in Python and on the free plan, start with the **SDK**. If
+  you want zero code changes or you're not on Python, use the **Proxy API**.
+</Tip>
 
-  <Step title="Set Environment Variable">
-    Export your API key so the SDK can authenticate automatically.
+---
 
-    <CodeGroup>
-      ```bash macOS / Linux
-      export AVALIAR_API_KEY="your-key"
-      ```
+## Set up your method
 
-      ```powershell Windows (PowerShell)
-      $env:AVALIAR_API_KEY = "your-key"
-      ```
-    </CodeGroup>
+Both paths start with an API key from the [Avaliar Dashboard](https://app.avaliar.ai)
+under **Settings → API Keys** — the only difference is the scope you pick.
 
-    <Tip>
-      Add this to your shell profile (`.bashrc`, `.zshrc`, etc.) so it persists across sessions.
-    </Tip>
-  </Step>
+<Tabs>
+  <Tab title="Proxy API">
+    <Steps>
+      <Step title="Create a Proxy API key">
+        1. Open **Settings → API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
+        2. Click **Create Key** and select the **`proxy`** scope.
+        3. Copy the key — you won't be able to see it again.
 
-  <Step title="Add Tracing">
-    Wrap any LLM call with the `@traceable` decorator. The SDK automatically captures the input, output, model, provider, latency, and token usage.
+        <Warning>
+          Use your Avaliar key only in server-side code. Never expose it in a
+          browser or client app.
+        </Warning>
+      </Step>
 
-    ```python
-    from avaliar import traceable
-    from openai import AsyncOpenAI
+      <Step title="Point your requests at the proxy">
+        Replace your provider's endpoint with the matching Avaliar Proxy URL and
+        add your `api_key` to the request body. Your existing provider key
+        (OpenAI, Anthropic, …) stays in the body exactly where it was.
 
-    client = AsyncOpenAI()
+        | Provider | Proxy Endpoint |
+        | -------- | -------------- |
+        | OpenAI | `POST https://proxy.avaliar.ai/api/openai_service/chat_completion` |
+        | Anthropic | `POST https://proxy.avaliar.ai/api/anthropic_service/chat_completion` |
+        | Google Gemini | `POST https://proxy.avaliar.ai/api/gemini_service/chat_completion` |
 
-    @traceable("llm", model="gpt-4o", provider="openai")
-    async def generate(prompt: str) -> str:
-        response = await client.chat.completions.create(
+        <CodeGroup>
+          ```python OpenAI
+          import requests
+
+          response = requests.post(
+              "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+              json={
+                  "api_key": "your-avaliar-api-key",    # Avaliar key — new
+                  "openai_api_key": "your-openai-key",   # Your existing OpenAI key
+                  "model": "gpt-4o",
+                  "messages": [{"role": "user", "content": "Hello!"}],
+              },
+          )
+          print(response.json())
+          ```
+
+          ```javascript Node.js
+          const response = await fetch(
+            "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                api_key: "your-avaliar-api-key",
+                openai_api_key: "your-openai-key",
+                model: "gpt-4o",
+                messages: [{ role: "user", content: "Hello!" }],
+              }),
+            }
+          );
+          ```
+
+          ```bash curl
+          curl -X POST https://proxy.avaliar.ai/api/openai_service/chat_completion \
+            -H "Content-Type: application/json" \
+            -d '{
+              "api_key": "your-avaliar-api-key",
+              "openai_api_key": "your-openai-key",
+              "model": "gpt-4o",
+              "messages": [{"role": "user", "content": "Hello!"}]
+            }'
+          ```
+        </CodeGroup>
+
+        <Info>
+          Detection runs automatically on every proxy request — there's nothing
+          extra to enable. See [Proxy Setup](/proxy/setup) for all parameters,
+          confidential requests, and error handling.
+        </Info>
+      </Step>
+
+      <Step title="View in the dashboard">
+        Open [app.avaliar.ai/traces](https://app.avaliar.ai/traces) to see your
+        traces, detected issues, latency, and cost in real time — a trace
+        appears within a few seconds of the call.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Python SDK">
+    <Steps>
+      <Step title="Install the SDK">
+        ```bash
+        pip install avaliar-python-sdk
+        ```
+      </Step>
+
+      <Step title="Create an SDK key">
+        1. Open **Settings → API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
+        2. Click **Create Key** and select the **`sdk`** scope.
+        3. Copy the generated key.
+
+        <Warning>
+          Store your API key securely. Treat it like a password and never commit
+          it to source control.
+        </Warning>
+      </Step>
+
+      <Step title="Set the environment variable">
+        Export your key so the SDK authenticates automatically.
+
+        <CodeGroup>
+          ```bash macOS / Linux
+          export AVALIAR_API_KEY="your-key"
+          ```
+
+          ```powershell Windows (PowerShell)
+          $env:AVALIAR_API_KEY = "your-key"
+          ```
+        </CodeGroup>
+
+        <Tip>
+          Add this to your shell profile (`.bashrc`, `.zshrc`, …) so it persists
+          across sessions.
+        </Tip>
+      </Step>
+
+      <Step title="Add tracing">
+        Wrap any LLM call with the `@traceable` decorator. The SDK captures the
+        input, output, model, provider, latency, and token usage automatically.
+
+        ```python
+        from avaliar import traceable
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI()
+
+        @traceable("llm", model="gpt-4o", provider="openai")
+        async def generate(prompt: str) -> str:
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.choices[0].message.content
+        ```
+
+        Every call to `generate()` now creates a trace in Avaliar.
+      </Step>
+
+      <Step title="Enable detection">
+        Turn on safety detection by adding `detection=True` and listing the
+        detectors you want to run.
+
+        ```python
+        from avaliar import traceable
+        from avaliar.detectors import DetectorType
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI()
+
+        @traceable(
+            "llm",
             model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
+            provider="openai",
+            detection=True,
+            detectors=[
+                DetectorType.PROMPT_INJECTION,
+                DetectorType.JAILBREAK,
+                DetectorType.TOXICITY,
+                DetectorType.PII,
+                DetectorType.BIAS,
+                DetectorType.HALLUCINATION,
+            ],
         )
-        return response.choices[0].message.content
-    ```
+        async def generate(prompt: str) -> str:
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.choices[0].message.content
+        ```
 
-    Every call to `generate()` now creates a trace in Avaliar with full metadata.
-  </Step>
+        <Info>
+          Each detector runs independently — enable as many or as few as you
+          need. See the [Detection overview](/detection/overview) for details.
+        </Info>
+      </Step>
 
-  <Step title="Enable Detection">
-    Turn on safety detection by adding `detection=True` and listing the detectors you want to run.
+      <Step title="View in the dashboard">
+        Open [app.avaliar.ai/traces](https://app.avaliar.ai/traces) to see your
+        traces, detected issues, and latency metrics in real time.
 
-    ```python
-    from avaliar import traceable
-    from avaliar.detectors import DetectorType
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI()
-
-    @traceable(
-        "llm",
-        model="gpt-4o",
-        provider="openai",
-        detection=True,
-        detectors=[
-            DetectorType.PROMPT_INJECTION,
-            DetectorType.JAILBREAK,
-            DetectorType.TOXICITY,
-            DetectorType.PII,
-            DetectorType.BIAS,
-            DetectorType.HALLUCINATION,
-        ]
-    )
-    async def generate(prompt: str) -> str:
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content
-    ```
-
-    <Info>
-      Each detector runs independently. You can enable as many or as few as you need. See the [Detection overview](/detection/overview) for details on each detector.
-    </Info>
-  </Step>
-
-  <Step title="View in Dashboard">
-    Open [app.avaliar.ai/traces](https://app.avaliar.ai/traces) to see your traces, detected issues, and latency metrics in real time.
-
-    <Note>
-      Traces typically appear in the dashboard within a few seconds of the LLM call completing.
-    </Note>
-  </Step>
-</Steps>
+        <Note>
+          Traces typically appear within a few seconds of the LLM call
+          completing.
+        </Note>
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
 ## Next Steps
 
 <CardGroup cols={3}>
+  <Card title="Proxy Integration" icon="server" href="/proxy/overview">
+    Full proxy reference — supported models, confidential mode, and the request pipeline.
+  </Card>
   <Card title="@traceable Decorator" icon="at" href="/sdk/traceable">
-    Explore all decorator options including span types, custom metadata, and nested traces.
+    All decorator options: span types, custom metadata, and nested traces.
   </Card>
   <Card title="Detection" icon="shield-halved" href="/detection/overview">
-    Configure detectors, choose between local and cloud modes, and set severity thresholds.
-  </Card>
-  <Card title="Benchmarks & Evals" icon="flask-vial" href="/benchmarks/overview">
-    Run standardized evaluations to measure model safety and capability.
+    Configure detectors, choose local vs cloud mode, and set severity thresholds.
   </Card>
 </CardGroup>
