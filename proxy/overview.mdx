@@ -10,6 +10,10 @@ The Avaliar Proxy is a transparent gateway that sits between your AI agent and L
 
 Instead of instrumenting your codebase with decorators or SDK calls, you replace your LLM provider's endpoint URL with the Avaliar Proxy URL and add your Avaliar API key to the request. The proxy handles everything else: tracing, detection, cost tracking, and alerting.
 
+<Tip>
+  The easiest way to integrate is the **[OpenAI-Compatible Endpoint](/proxy/openai-compatible)** — point any OpenAI SDK or no-code tool at `https://proxy-api-ckjd.onrender.com/v1` with your Avaliar key. The per-provider endpoints below are a lower-level alternative.
+</Tip>
+
 ## Supported Providers
 
 | Provider | Models |
@@ -32,6 +36,15 @@ See the full [Supported Models](/proxy/models) list for all available model IDs.
 <Note>
   Proxy integration requires a **Pro plan**. [Upgrade your plan](https://app.avaliar.ai/settings/billing) to get started.
 </Note>
+
+## Credits & bring-your-own key
+
+Proxy calls run on OpenRouter through Avaliar, so each org needs one of:
+
+- **Prepaid credits** — every org starts at **$0**; a workspace admin tops up the balance and each call deducts its exact cost.
+- **Your own OpenRouter key** — set it under **Settings → Organization → OpenRouter API Key** to bill your own OpenRouter account (credits aren't used).
+
+With neither, proxy calls return `402 Out of proxy credits`. Details: [Credits & BYO key](/proxy/openai-compatible#credits-and-byo-key).
 
 ## How It Works
 
@@ -62,8 +75,11 @@ For each request, the proxy:
 | Plan required | Free | Pro |
 
 <CardGroup cols={2}>
+  <Card title="OpenAI-Compatible Endpoint" icon="plug" href="/proxy/openai-compatible">
+    The recommended path — drop-in with any OpenAI SDK or no-code tool.
+  </Card>
   <Card title="Proxy Setup" icon="gear" href="/proxy/setup">
-    Integrate the proxy in minutes — no code changes beyond a URL swap.
+    Lower-level per-provider endpoints with body-based keys.
   </Card>
   <Card title="How the Proxy Works" icon="diagram-project" href="/proxy/how-it-works">
     Understand the 3-stage pipeline that powers every proxy request.

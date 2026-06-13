@@ -1,0 +1,151 @@
+---
+title: "OpenAI-Compatible Endpoint"
+description: "Use the Avaliar Proxy from any OpenAI SDK or no-code tool by changing one URL"
+icon: "plug"
+---
+
+The proxy exposes a drop-in **OpenAI Chat Completions** endpoint. Point any
+OpenAI-compatible SDK or no-code tool at it by changing the base URL — no
+provider keys in your code, no special request shape, and you get back a
+standard `chat.completion` response. Every call is traced and run through
+[detection](/detection/overview) automatically.
+
+## Configuration
+
+Set three things on your client:
+
+| Field | Value |
+| ----- | ----- |
+| **Base URL** | `https://proxy-api-ckjd.onrender.com/v1` |
+| **API key** | Your Avaliar **`proxy`**-scoped key (sent as `Authorization: Bearer …`) |
+| **Model** | An OpenRouter model slug, e.g. `openai/gpt-4o` |
+
+<Note>
+  The base URL ends at `/v1`. OpenAI clients append `/chat/completions`
+  themselves, so the actual endpoint is
+  `https://proxy-api-ckjd.onrender.com/v1/chat/completions`. With a raw HTTP tool, use the
+  full path.
+</Note>
+
+## Quick start
+
+<CodeGroup>
+  ```python OpenAI SDK (Python)
+  from openai import OpenAI
+
+  client = OpenAI(
+      base_url="https://proxy-api-ckjd.onrender.com/v1",
+      api_key="your-avaliar-proxy-key",
+  )
+
+  resp = client.chat.completions.create(
+      model="openai/gpt-4o",
+      messages=[{"role": "user", "content": "Hello!"}],
+  )
+  print(resp.choices[0].message.content)
+  ```
+
+  ```javascript OpenAI SDK (Node)
+  import OpenAI from "openai";
+
+  const client = new OpenAI({
+    baseURL: "https://proxy-api-ckjd.onrender.com/v1",
+    apiKey: "your-avaliar-proxy-key",
+  });
+
+  const resp = await client.chat.completions.create({
+    model: "openai/gpt-4o",
+    messages: [{ role: "user", content: "Hello!" }],
+  });
+  ```
+
+  ```bash curl
+  curl https://proxy-api-ckjd.onrender.com/v1/chat/completions \
+    -H "Authorization: Bearer your-avaliar-proxy-key" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "openai/gpt-4o",
+      "messages": [{"role": "user", "content": "Hello!"}]
+    }'
+  ```
+</CodeGroup>
+
+## Models
+
+The endpoint routes through OpenRouter, so **any OpenRouter model works** — use
+the full `vendor/model` slug (not a bare name):
+
+- `openai/gpt-4o`, `openai/gpt-4o-mini`
+- `anthropic/claude-sonnet-4-5`
+- `google/gemini-2.5-flash`
+- `meta-llama/llama-3.3-70b-instruct:free`
+
+Browse and copy exact ids at [openrouter.ai/models](https://openrouter.ai/models).
+
+<Warning>
+  Use the slug form. A bare name like `gpt-4o` is rejected with a `400` telling
+  you to use `openai/gpt-4o`. Some clients (e.g. LiteLLM) strip the vendor
+  prefix when routing — prefer a node that sends the model verbatim, such as
+  Flowise's **ChatOpenAI Custom**.
+</Warning>
+
+## Credits and BYO key
+
+Proxy calls run on OpenRouter through Avaliar. To use them, an org needs one of:
+
+- **Prepaid credits** — every org starts at **$0**. A workspace admin tops up
+  the balance from the dashboard. Each call deducts its exact OpenRouter cost.
+- **Your own OpenRouter key** — add it under **Settings → Organization →
+  OpenRouter API Key**. When set, calls bill your OpenRouter account directly
+  and **credits are not consumed**.
+
+If an org has no credits **and** no key, calls return:
+
+```json
+{ "error": { "message": "Out of proxy credits...", "code": "insufficient_credits" } }
+```
+
+with HTTP `402`. Add credits or set your own key to resume.
+
+## Streaming
+
+`stream: true` is supported and returns a standard `text/event-stream`. The
+upstream call is non-streaming, so the full message arrives as a single content
+delta followed by `[DONE]` — clients that expect SSE (most chat UIs) work
+without changes.
+
+## Errors
+
+| Status | Meaning |
+| ------ | ------- |
+| `401` | Missing/invalid Avaliar key, or it lacks the `proxy` scope. Send it as `Authorization: Bearer`. |
+| `402` | Out of credits and no BYO OpenRouter key set. |
+| `400` | Bad request — missing `model`/`messages`, or a bare model name (use the `vendor/model` slug). |
+| `5xx` | Upstream provider/proxy error. |
+
+## Using it in a no-code tool
+
+Most tools have an "OpenAI / OpenAI-compatible" model node:
+
+1. Choose the **ChatOpenAI Custom** (or "OpenAI-compatible") node — not a
+   provider-locked one, and not LiteLLM (it rewrites the model by prefix).
+2. **Base URL / Base Path:** `https://proxy-api-ckjd.onrender.com/v1`
+3. **API key:** your Avaliar proxy key.
+4. **Model:** an OpenRouter slug, e.g. `openai/gpt-4o`.
+
+<Note>
+  The Avaliar key goes in the API-key field (it's sent as a Bearer header) —
+  you do **not** pass any provider key. If a tool only sends the key as a header
+  (which this endpoint expects), you're set.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Native Provider Endpoints" icon="gear" href="/proxy/setup">
+    Lower-level per-provider endpoints (OpenAI/Anthropic/Gemini) with body-based keys.
+  </Card>
+  <Card title="How the Proxy Works" icon="diagram-project" href="/proxy/how-it-works">
+    The request → response → detection pipeline behind every call.
+  </Card>
+</CardGroup>

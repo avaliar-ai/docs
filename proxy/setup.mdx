@@ -6,6 +6,10 @@ icon: "gear"
 
 Get your AI agent routed through the Avaliar Proxy in three steps. The only changes required are your endpoint URL and adding your Avaliar API key to the request body.
 
+<Tip>
+  Most integrations should use the **[OpenAI-Compatible Endpoint](/proxy/openai-compatible)** instead — it works with any OpenAI SDK or no-code tool by just setting a base URL and Bearer key. The per-provider endpoints on this page are a lower-level alternative (body-based keys, one path per provider).
+</Tip>
+
 <Steps>
   <Step title="Get a Proxy API Key">
     Generate an API key from the [Avaliar Dashboard](https://app.avaliar.ai/settings/api-keys).
@@ -27,9 +31,9 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
 
     | Provider | Proxy Endpoint |
     | -------- | -------------- |
-    | OpenAI | `POST https://proxy.avaliar.ai/api/openai_service/chat_completion` |
-    | Anthropic | `POST https://proxy.avaliar.ai/api/anthropic_service/chat_completion` |
-    | Google Gemini | `POST https://proxy.avaliar.ai/api/gemini_service/chat_completion` |
+    | OpenAI | `POST https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion` |
+    | Anthropic | `POST https://proxy-api-ckjd.onrender.com/api/anthropic_service/chat_completion` |
+    | Google Gemini | `POST https://proxy-api-ckjd.onrender.com/api/gemini_service/chat_completion` |
 
     Your existing provider API key (OpenAI key, Anthropic key, etc.) stays in the request body exactly where it was. Just add `api_key` alongside it.
 
@@ -38,7 +42,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       import requests
 
       response = requests.post(
-          "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+          "https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion",
           json={
               "api_key": "your-avaliar-api-key",        # Avaliar key — new
               "openai_api_key": "your-openai-key",       # Your existing OpenAI key
@@ -54,7 +58,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       import requests
 
       response = requests.post(
-          "https://proxy.avaliar.ai/api/anthropic_service/chat_completion",
+          "https://proxy-api-ckjd.onrender.com/api/anthropic_service/chat_completion",
           json={
               "api_key": "your-avaliar-api-key",         # Avaliar key — new
               "anthropic_api_key": "your-anthropic-key", # Your existing Anthropic key
@@ -71,7 +75,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       import requests
 
       response = requests.post(
-          "https://proxy.avaliar.ai/api/gemini_service/chat_completion",
+          "https://proxy-api-ckjd.onrender.com/api/gemini_service/chat_completion",
           json={
               "api_key": "your-avaliar-api-key",       # Avaliar key — new
               "gemini_api_key": "your-gemini-key",      # Your existing Gemini key
@@ -85,7 +89,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
 
       ```javascript OpenAI (Node.js)
       const response = await fetch(
-        "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+        "https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -100,7 +104,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       ```
 
       ```bash curl (OpenAI)
-      curl -X POST https://proxy.avaliar.ai/api/openai_service/chat_completion \
+      curl -X POST https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion \
         -H "Content-Type: application/json" \
         -d '{
           "api_key": "your-avaliar-api-key",
@@ -163,7 +167,7 @@ If a request contains sensitive information that should not be stored, set `is_c
 
 ```python
 requests.post(
-    "https://proxy.avaliar.ai/api/openai_service/chat_completion",
+    "https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion",
     json={
         "api_key": "your-avaliar-api-key",
         "model": "gpt-4o",

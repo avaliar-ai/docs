@@ -46,6 +46,10 @@ under **Settings → API Keys** — the only difference is the scope you pick.
 
 <Tabs>
   <Tab title="Proxy API">
+    The proxy exposes an **OpenAI-compatible** endpoint, so any OpenAI SDK or
+    no-code tool works by just changing the base URL — no provider keys in your
+    code, no special request shape.
+
     <Steps>
       <Step title="Create a Proxy API key">
         1. Open **Settings → API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
@@ -58,65 +62,72 @@ under **Settings → API Keys** — the only difference is the scope you pick.
         </Warning>
       </Step>
 
-      <Step title="Point your requests at the proxy">
-        Replace your provider's endpoint with the matching Avaliar Proxy URL and
-        add your `api_key` to the request body. Your existing provider key
-        (OpenAI, Anthropic, …) stays in the body exactly where it was.
+      <Step title="Add credits (or bring your own key)">
+        Proxy calls run on **OpenRouter** through Avaliar. To use them you need
+        either:
+        - **Credits** — every org starts at **$0**; a workspace admin tops up the
+          prepaid balance, **or**
+        - **Your own OpenRouter key** — add it under **Settings → Organization →
+          OpenRouter API Key**. When set, calls bill your OpenRouter account
+          directly and credits aren't used.
 
-        | Provider | Proxy Endpoint |
-        | -------- | -------------- |
-        | OpenAI | `POST https://proxy.avaliar.ai/api/openai_service/chat_completion` |
-        | Anthropic | `POST https://proxy.avaliar.ai/api/anthropic_service/chat_completion` |
-        | Google Gemini | `POST https://proxy.avaliar.ai/api/gemini_service/chat_completion` |
+        With no credits and no key, proxy calls return `402 Out of proxy credits`.
+        See [BYO key & credits](/proxy/openai-compatible#credits-and-byo-key).
+      </Step>
+
+      <Step title="Point any OpenAI client at the proxy">
+        Set three things on your OpenAI-compatible client/tool:
+        - **Base URL:** `https://proxy-api-ckjd.onrender.com/v1`
+        - **API key:** your Avaliar **proxy** key (sent as a Bearer token)
+        - **Model:** an OpenRouter slug, e.g. `openai/gpt-4o`
 
         <CodeGroup>
-          ```python OpenAI
-          import requests
+          ```python OpenAI SDK (Python)
+          from openai import OpenAI
 
-          response = requests.post(
-              "https://proxy.avaliar.ai/api/openai_service/chat_completion",
-              json={
-                  "api_key": "your-avaliar-api-key",    # Avaliar key — new
-                  "openai_api_key": "your-openai-key",   # Your existing OpenAI key
-                  "model": "gpt-4o",
-                  "messages": [{"role": "user", "content": "Hello!"}],
-              },
+          client = OpenAI(
+              base_url="https://proxy-api-ckjd.onrender.com/v1",
+              api_key="your-avaliar-proxy-key",
           )
-          print(response.json())
+
+          resp = client.chat.completions.create(
+              model="openai/gpt-4o",
+              messages=[{"role": "user", "content": "Hello!"}],
+          )
+          print(resp.choices[0].message.content)
           ```
 
-          ```javascript Node.js
-          const response = await fetch(
-            "https://proxy.avaliar.ai/api/openai_service/chat_completion",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                api_key: "your-avaliar-api-key",
-                openai_api_key: "your-openai-key",
-                model: "gpt-4o",
-                messages: [{ role: "user", content: "Hello!" }],
-              }),
-            }
-          );
+          ```javascript OpenAI SDK (Node)
+          import OpenAI from "openai";
+
+          const client = new OpenAI({
+            baseURL: "https://proxy-api-ckjd.onrender.com/v1",
+            apiKey: "your-avaliar-proxy-key",
+          });
+
+          const resp = await client.chat.completions.create({
+            model: "openai/gpt-4o",
+            messages: [{ role: "user", content: "Hello!" }],
+          });
           ```
 
           ```bash curl
-          curl -X POST https://proxy.avaliar.ai/api/openai_service/chat_completion \
+          curl https://proxy-api-ckjd.onrender.com/v1/chat/completions \
+            -H "Authorization: Bearer your-avaliar-proxy-key" \
             -H "Content-Type: application/json" \
             -d '{
-              "api_key": "your-avaliar-api-key",
-              "openai_api_key": "your-openai-key",
-              "model": "gpt-4o",
+              "model": "openai/gpt-4o",
               "messages": [{"role": "user", "content": "Hello!"}]
             }'
           ```
         </CodeGroup>
 
         <Info>
-          Detection runs automatically on every proxy request — there's nothing
-          extra to enable. See [Proxy Setup](/proxy/setup) for all parameters,
-          confidential requests, and error handling.
+          Models use OpenRouter slugs (`vendor/model`) — `openai/gpt-4o`,
+          `anthropic/claude-sonnet-4-5`, `google/gemini-2.5-flash`, etc. Find
+          them at [openrouter.ai/models](https://openrouter.ai/models). Detection
+          runs automatically on every call. Full reference:
+          [OpenAI-Compatible Endpoint](/proxy/openai-compatible).
         </Info>
       </Step>
 

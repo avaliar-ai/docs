@@ -39,6 +39,7 @@
             "group": "Proxy Integration",
             "pages": [
               "proxy/overview",
+              "proxy/openai-compatible",
               "proxy/setup",
               "proxy/how-it-works",
               "proxy/models"
