@@ -33,16 +33,20 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
   </Accordion>
 
   <Accordion title="Detection" icon="shield-halved">
-    **Detection** is the automated analysis of traces for safety issues. Avaliar provides six built-in detectors:
+    **Detection** is the automated analysis of traces for safety issues. Avaliar provides ten built-in detectors:
 
     | Detector | What It Finds |
     |----------|---------------|
-    | **Prompt Injection** | Attempts to override system instructions via user input |
-    | **Jailbreak** | Techniques designed to bypass model safety guardrails |
+    | **Prompt Injection** | Attempts to override system instructions via user input — also covers jailbreak and SQL-injection patterns in a single pass (runs synchronously as a pre-LLM blocking gate) |
     | **Toxicity** | Harmful, abusive, or offensive language in inputs or outputs |
     | **PII** | Personally identifiable information — emails, phone numbers, SSNs, etc. |
     | **Bias** | Stereotyping, demographic bias, or unfair treatment in model outputs |
     | **Hallucination** | Factually incorrect or fabricated information in model responses |
+    | **Misinformation** | Verifiably false claims — conspiracy content, fabricated advice |
+    | **Misuse** | Attempts to weaponize the model — phishing, malware, fraud |
+    | **Graphic Content** | Explicit violence or sexual content that breaches content-safety standards |
+    | **Illegal Activities** | Requests for dangerous or unlawful instructional content |
+    | **Personal Safety** | Self-harm encouragement, dangerous advice, radicalization |
 
     Detection runs in one of two modes — **local** (data stays on your infrastructure) or **cloud** (higher throughput, zero ops overhead).
 
