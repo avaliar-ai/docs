@@ -37,6 +37,27 @@ View your local preview at `http://localhost:3000`.
 
 Changes pushed to the `main` branch are automatically deployed via the Mintlify GitHub integration.
 
+## llms.txt
+
+`llms.txt` and `llms-full.txt` follow the [llms.txt standard](https://llmstxt.org)
+and let AI agents read these docs without scraping HTML. Both are generated from
+the MDX sources, so regenerate them whenever pages are added, removed, reordered
+in `docs.json`, or substantially rewritten:
+
+```bash
+python scripts/generate_llms_txt.py
+```
+
+- `llms.txt` — the index: a summary of the platform plus a linked, grouped map of every page.
+- `llms-full.txt` — every page's full text flattened into one file, with Mintlify
+  components (`<Card>`, `<Step>`, `<Tab>`, `<Accordion>`, `<Note>`, …) converted to
+  plain markdown.
+
+The curated intro shared by both files lives in `scripts/llms_intro.md` — edit that
+rather than the generated output. Committing these files to the repo root overrides
+Mintlify's auto-generated versions. Set `DOCS_BASE_URL` if the docs move off
+`https://docs.avaliar.ai`.
+
 ## Resources
 
 - [Avaliar Dashboard](https://app.avaliar.ai)
