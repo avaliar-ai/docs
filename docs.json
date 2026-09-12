@@ -46,6 +46,12 @@
             ]
           },
           {
+            "group": "OpenTelemetry",
+            "pages": [
+              "otlp/overview"
+            ]
+          },
+          {
             "group": "Detection",
             "pages": [
               "detection/overview",

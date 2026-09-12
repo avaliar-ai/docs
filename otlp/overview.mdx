@@ -1,0 +1,166 @@
+---
+title: "OpenTelemetry Ingestion"
+description: "Send traces from any AI system, with no SDK and no code change"
+icon: "diagram-project"
+---
+
+## Overview
+
+Avaliar accepts [OpenTelemetry](https://opentelemetry.io) log records directly. Any system already instrumented with OpenTelemetry can report to Avaliar by pointing one environment variable at us. No SDK import, no code change, no language restriction.
+
+```bash
+OTEL_LOGS_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.avaliar.ai/api/v1/otlp
+OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=av_your_key_here"
+```
+
+The exporter appends `/v1/logs` itself, so give it the base endpoint above.
+
+<Note>
+Send uncompressed. The ingest endpoint does not decompress request bodies, so `compression: gzip` on your exporter will cause batches to be rejected.
+</Note>
+
+## How your events are understood
+
+Different AI systems name the same thing differently. One calls a model call `api_request`, another calls it `assistant/message`. Avaliar resolves this in three tiers, and most integrations only need the first.
+
+<Steps>
+  <Step title="Emit the standard, and you are done">
+    If your system follows the OpenTelemetry [GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/), Avaliar understands it on arrival with no configuration at all.
+  </Step>
+  <Step title="Or we add a profile for your dialect">
+    If your system has its own vocabulary, we describe it in a small profile. Profiles are data, not code, so adding one does not require an Avaliar release.
+  </Step>
+  <Step title="Or you normalise before sending">
+    If you already run an OpenTelemetry Collector, reshape your events into the conventions on your side. Nothing is needed from us.
+  </Step>
+</Steps>
+
+## Tier 1: the GenAI conventions
+
+An emitter following the conventions works immediately. Avaliar reads:
+
+| What Avaliar needs | Convention attribute |
+| --- | --- |
+| Which exchange this belongs to | `gen_ai.conversation.id` |
+| Model | `gen_ai.request.model`, `gen_ai.response.model` |
+| Input tokens | `gen_ai.usage.input_tokens` |
+| Output tokens | `gen_ai.usage.output_tokens` |
+| Prompt text | `gen_ai.prompt` |
+| Response text | `gen_ai.completion` |
+| Tool name | `gen_ai.tool.name` |
+
+Recognised event names include `gen_ai.client.inference`, `gen_ai.user.message`, `gen_ai.assistant.message` and `gen_ai.tool.message`.
+
+Two attributes matter more than the rest. **A record with no correlation id is dropped**, because a span with no trace is worse than no span at all, so make sure every record carries one. And the event name must be resolvable, from `event.name`, `event.type`, or a plain-string log body.
+
+## Tier 2: a profile for your dialect
+
+Systems built before the conventions existed, or built in-house, usually have their own names. Rather than asking you to change your instrumentation, Avaliar describes your dialect as a profile:
+
+```json
+{
+  "name": "acme-agent",
+  "match_service": ["acme-agent"],
+  "event_name_keys": ["acme.kind"],
+  "events": {
+    "ask":       "prompt",
+    "infer":     "llm",
+    "toolran":   "tool",
+    "reply":     "response",
+    "heartbeat": "ignore"
+  },
+  "trace_id_keys":     ["acme.request_id"],
+  "model_keys":        ["acme.model"],
+  "input_token_keys":  ["acme.tok_in"],
+  "output_token_keys": ["acme.tok_out"]
+}
+```
+
+Every event maps to one of seven kinds: `prompt`, `llm`, `tool`, `response`, `error`, `decision`, or `ignore`. Mapping the noise to `ignore` matters as much as the rest, so routine chatter is counted as expected rather than reported as unrecognised.
+
+The profile is matched by your `service.name`. If you do not set one, Avaliar falls back to every dialect it knows, so an unlabelled batch still resolves.
+
+Profiles ship for **Claude Code**, the **ChatGPT browser extension** and the **DeepSeek harness**. To have yours added, send us a sample batch.
+
+<Note>
+A profile translates the wire format only. It maps names to kinds and attributes to fields; it cannot compute values, branch, or reshape payloads. Anything needing more than that belongs in Tier 3.
+</Note>
+
+## Tier 3: normalise with the Collector
+
+If your events cannot be expressed as a profile, or you would rather not depend on us adding one, reshape them yourself. Most enterprises already run an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/), whose `transform` processor does this in configuration:
+
+```yaml
+processors:
+  transform:
+    log_statements:
+      - context: log
+        statements:
+          # Give every record the name and correlation id Avaliar needs.
+          - set(attributes["event.name"], "gen_ai.client.inference")
+              where attributes["acme.kind"] == "infer"
+          - set(attributes["gen_ai.conversation.id"], attributes["acme.request_id"])
+          - set(attributes["gen_ai.request.model"], attributes["acme.model"])
+          - set(attributes["gen_ai.usage.input_tokens"], attributes["acme.tok_in"])
+          - set(attributes["gen_ai.usage.output_tokens"], attributes["acme.tok_out"])
+
+exporters:
+  otlphttp/avaliar:
+    logs_endpoint: https://api.avaliar.ai/api/v1/otlp/v1/logs
+    headers:
+      X-API-Key: ${env:AVALIAR_API_KEY}
+    compression: none
+
+service:
+  pipelines:
+    logs:
+      processors: [transform]
+      exporters: [otlphttp/avaliar]
+```
+
+This keeps the mapping under your change control and version alongside your own config.
+
+## Checking what arrived
+
+The endpoint always answers `200` with a summary, so a malformed batch never makes your exporter retry forever:
+
+```json
+{
+  "partialSuccess": {},
+  "avaliar": {
+    "traces": 1,
+    "spans_written": 3,
+    "records_skipped": 0,
+    "unknown_events": {},
+    "ignored_events": {},
+    "missing_trace_id": {}
+  }
+}
+```
+
+Read it as a diagnostic:
+
+- **`unknown_events`** — the name resolved but no rule matched it. You need a profile, or the event should be mapped to `ignore`.
+- **`missing_trace_id`** — no correlation id on the record. Nothing can be built from these.
+- **`ignored_events`** — recognised and deliberately not stored. Healthy.
+- **`spans_written: 0` with `traces: 1`** — the trace exists but has no children yet, usually a prompt that arrived before its model call.
+
+## Detection
+
+OTLP traces are scanned exactly like SDK traces, but the choice is carried on the **API key** rather than per call, because an OpenTelemetry client has no way to pass it.
+
+A key set to cloud detection has its prompts scanned for injection on arrival and its responses scanned once the turn completes. A key without it stores traces unscanned, and the platform shows them as **not scanned** rather than as clean.
+
+<Warning>
+Detection mode is fixed when a key is created and cannot be changed afterwards. If you want cloud detection on traces you are already sending, create a new key with it enabled and swap it in.
+</Warning>
+
+## Limits worth knowing
+
+**Tokens and cost come from your client.** Avaliar records what you report. A client that reports no token counts appears in the Trace Explorer but contributes nothing to Cost. Nothing is estimated, because invented spend is worse than absent spend.
+
+**Cache tokens are kept separate** from input tokens. For an agentic client, cache reads dwarf ordinary input and bill at a fraction of the rate, so combining them would overstate cost several times over.
+
+**Duration is wall clock** from the first span starting to the last finishing, not the sum of call durations. Summing double counts the overlapping calls agents routinely make.
