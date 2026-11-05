@@ -1,196 +1,97 @@
 ---
 title: "Error Handling"
-description: "Handle errors and configure retry behavior"
+description: "What the SDK raises, what it retries, and what it never lets break your app"
 icon: "triangle-exclamation"
 ---
 
-## Overview
+## The short version
 
-The Avaliar SDK provides a structured error hierarchy so you can catch and handle specific failure modes. Transient errors are retried automatically with exponential backoff, while permanent errors are raised immediately.
+- **Tracing never raises into your code.** If Avaliar is down, slow, or rejects a trace, your traced function still returns normally. Problems are logged once on the `avaliar` logger.
+- **Blocking can raise**, on purpose: `PromptBlockedError` when a prompt is blocked, and `AvaliarDetectionUnavailableError` when you chose `fail_closed=True` and the prompt could not be checked.
+- **Every request has a timeout.** A hung backend can never hang your app.
 
-## Error Hierarchy
+## Errors
 
-All SDK errors inherit from `AvaliarError`. Catch this base class to handle any Avaliar-related failure, or catch specific subclasses for fine-grained control.
+All SDK errors inherit from `AvaliarError` and can be imported from `avaliar`.
 
 ```
 AvaliarError
-├── AvaliarAPIError          # Server errors (HTTP 500, 503)
-├── AvaliarRequestTimeout    # Request timed out
-├── AvaliarUserError         # Invalid input or configuration
-├── AvaliarRateLimitError    # Rate limit exceeded (HTTP 429)
-├── AvaliarAuthError         # Authentication failed (HTTP 401)
-├── AvaliarNotFoundError     # Resource not found (HTTP 404)
-├── AvaliarConflictError     # Resource conflict (HTTP 409)
-├── AvaliarConnectionError   # Network connectivity issues
-└── PromptBlockedError       # Prompt blocked by safety check (blocking mode)
+├── AvaliarAPIError                    # 5xx from Avaliar
+├── AvaliarRequestTimeout              # Avaliar did not answer in time
+├── AvaliarConnectionError             # Avaliar could not be reached
+├── AvaliarRateLimitError              # 429
+├── AvaliarDetectionUnavailableError   # prompt not checked, fail_closed=True
+├── PromptBlockedError                 # prompt blocked (blocking=True)
+└── AvaliarUserError                   # the request itself is wrong (4xx)
+    ├── AvaliarAuthError               # 401: bad or revoked API key
+    ├── AvaliarPermissionError         # 403: e.g. a plan limit; .code says why
+    ├── AvaliarNotFoundError           # 404
+    ├── AvaliarConflictError           # 409
+    └── AvaliarConfigError             # SDK not configured, e.g. no API key
 ```
+
+Error messages carry the server's explanation, for example `403: Cloud detection requires a Pro plan.`
 
 ## PromptBlockedError
 
-Raised when [blocking mode](/sdk/detection#blocking-mode) is enabled and a prompt is flagged before reaching the LLM:
+Raised by a `blocking=True` function when Avaliar blocks the prompt. The model is not called.
 
 ```python
 from avaliar import traceable, PromptBlockedError
 
-@traceable("llm", model="gpt-4o", provider="openai", blocking=True)
-async def generate(messages: list) -> str:
-    ...
+@traceable("llm", blocking=True)
+async def generate(messages): ...
 
 try:
     result = await generate(messages)
 except PromptBlockedError as e:
-    print(e.reason)   # Why the prompt was blocked
-    print(e.issues)   # List of detected issues (may be None)
-    # Return a safe fallback response
+    e.reason           # "Blocked: prompt_injection (97%)"
+    e.issues           # detected issues, possibly empty
+    e.blocked_message  # the workspace's reply text, or None
 ```
 
-### Error Reference
+To get the reply text returned instead of an exception, use `on_block="reply"`. See [Blocking mode](/sdk/detection#blocking-mode).
 
-| Error Class | HTTP Status | Description | Retried? |
-|-------------|-------------|-------------|----------|
-| `AvaliarAPIError` | 500, 503 | Server-side error | Yes |
-| `AvaliarRequestTimeout` | -- | Request exceeded timeout | No |
-| `AvaliarUserError` | 400, 422 | Invalid input or configuration | No |
-| `AvaliarRateLimitError` | 429 | Too many requests | Yes |
-| `AvaliarAuthError` | 401 | Invalid or expired API key | No |
-| `AvaliarNotFoundError` | 404 | Resource does not exist | No |
-| `AvaliarConflictError` | 409 | Resource already exists or conflict | No |
-| `AvaliarConnectionError` | -- | Could not reach the API | Yes |
+## AvaliarDetectionUnavailableError
 
-## Retry Strategy
+Raised only with `fail_closed=True`, when the prompt could not be checked: Avaliar was unreachable, timed out, or its detection service was down. The model is not called. Without `fail_closed`, these calls go through unchecked and one warning is logged.
 
-The SDK automatically retries transient errors using **exponential backoff with jitter**. You do not need to implement retry logic yourself.
+## Retries
 
-<Steps>
-  <Step title="Retryable Errors">
-    The following error types are retried automatically:
+| Failure | Retried? |
+|---------|----------|
+| Connection error, timeout, 429, 5xx | Yes, up to 3 attempts with backoff (traces) |
+| 4xx (bad key, plan limit, invalid data) | No: it will not fix itself |
 
-    - `AvaliarConnectionError` -- network failures and DNS resolution issues
-    - `AvaliarAPIError` -- server errors (HTTP 500, 503)
-    - `AvaliarRateLimitError` -- rate limit responses (HTTP 429)
-  </Step>
-  <Step title="Backoff Formula">
-    Each retry waits longer than the previous one:
+The blocking prompt check is held to `blocking_timeout` (default 10s) in total. It is not retried on timeout, only once on a dropped connection.
 
-    ```
-    delay = 2^attempt + random_jitter(0, 0.5)
-    ```
+## Timeouts
 
-    | Attempt | Wait time |
-    |---------|-----------|
-    | 1st retry | 1.0–1.5s |
-    | 2nd retry | 2.0–2.5s |
-    | 3rd retry | 4.0–4.5s |
-  </Step>
-  <Step title="Max Retries">
-    The SDK retries up to **3 times** by default. After all retries are exhausted, the original error is raised.
-  </Step>
-</Steps>
+| Variable | Default | Applies to |
+|----------|---------|-----------|
+| `AVALIAR_TIMEOUT` | `10` | Sending traces |
+| `AVALIAR_BLOCKING_TIMEOUT` | `10` | The blocking prompt check (or `blocking_timeout=` per function) |
+| `AVALIAR_FLUSH_TIMEOUT` | `5` | Sending queued traces at process exit |
 
-## Catching Errors
+## Making sure traces are sent
 
-### Catch a Specific Error
+Traces go through a background queue. Normal processes flush it at exit. Serverless handlers and batch jobs should flush explicitly:
 
 ```python
-from avaliar.errors.client_errors import AvaliarAuthError, AvaliarRateLimitError
+import avaliar
 
-try:
-    result = await generate(messages)
-except AvaliarAuthError:
-    print("Invalid API key. Check your AVALIAR_API_KEY environment variable.")
-except AvaliarRateLimitError:
-    print("Rate limited. The SDK retried automatically but the limit persists.")
+def handler(event, context):
+    result = run_agent(event)
+    avaliar.flush(timeout=5)   # True when everything was sent
+    return result
 ```
 
-### Catch All Avaliar Errors
+## Seeing what went wrong
 
 ```python
-from avaliar.errors.client_errors import AvaliarError
-
-try:
-    result = await generate(messages)
-except AvaliarError as e:
-    print(f"Avaliar SDK error: {e}")
+import logging
+logging.basicConfig()
+logging.getLogger("avaliar").setLevel(logging.INFO)
 ```
 
-### Handle Errors by Category
-
-```python
-from avaliar.errors.client_errors import (
-    AvaliarError,
-    AvaliarAuthError,
-    AvaliarUserError,
-    AvaliarRateLimitError,
-    AvaliarAPIError,
-    AvaliarConnectionError,
-    AvaliarNotFoundError,
-    AvaliarRequestTimeout,
-)
-
-try:
-    result = await generate(messages)
-
-except AvaliarAuthError:
-    # Permanent: check your API key
-    logger.error("Authentication failed. Verify AVALIAR_API_KEY is correct.")
-
-except AvaliarUserError as e:
-    # Permanent: fix the request
-    logger.error(f"Invalid request: {e}")
-
-except AvaliarNotFoundError:
-    # Permanent: the resource does not exist
-    logger.error("Requested resource was not found.")
-
-except AvaliarRequestTimeout:
-    # Consider increasing the timeout
-    logger.warning("Request timed out.")
-
-except (AvaliarAPIError, AvaliarConnectionError, AvaliarRateLimitError) as e:
-    # Transient: already retried automatically
-    logger.warning(f"Transient error after retries: {e}")
-
-except AvaliarError as e:
-    # Catch-all for any other SDK error
-    logger.error(f"Unexpected Avaliar error: {e}")
-```
-
-## Background error handling
-
-Trace submission happens in background threads. By default, errors in background submission are silently handled — they do not crash your application. If you need to observe or log those failures, use the client directly:
-
-```python
-from avaliar.client import Client
-
-client = Client()
-
-def on_error(e: Exception):
-    logger.error(f"Trace submission failed: {e}")
-
-client.thread_request_with_retries(
-    method="POST",
-    data=trace_data,
-    on_error=on_error,
-)
-```
-
-## Configuration
-
-### Timeout Settings
-
-Configure request timeouts through the SDK client:
-
-```python
-import os
-
-# Set the request timeout in seconds (default: 30)
-os.environ["AVALIAR_REQUEST_TIMEOUT"] = "60"
-```
-
-<Warning>
-  Non-retryable errors such as `AvaliarAuthError` and `AvaliarUserError` are raised immediately. Do not retry these -- they indicate a problem that requires a code or configuration change.
-</Warning>
-
-<Tip>
-  In production, catch `AvaliarError` broadly and log the details. Use specific exception handlers only where you need to take different recovery actions for different failure modes.
-</Tip>
+Each distinct problem (a missing key, a rejected trace, a prompt that could not be checked) is logged once rather than once per span.

@@ -39,7 +39,7 @@ Run detectors independently for custom validation workflows:
 ```python
 from avaliar.detectors import Detector, DetectorType
 
-detector = Detector([DetectorType.PROMPT_INJECTION, DetectorType.PII])
+detector = Detector([DetectorType.PROMPT_INJECTION, DetectorType.PII_LEAK])
 
 result = await detector.evaluate_full(
     prompt="User input here",

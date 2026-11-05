@@ -24,11 +24,7 @@ By the end you'll have a fully instrumented, observable AI agent that you can ex
 pip install avaliar-python-sdk openai
 ```
 
-For local detection (optional):
-
-```bash
-pip install avaliar_eval
-```
+Local detection needs Avaliar's detection engine, which is shared on request. This example uses cloud detection, which needs nothing extra.
 
 ### Configure environment
 
@@ -117,7 +113,7 @@ async def search_knowledge_base(query: str) -> str:
     detectors=[
         DetectorType.PROMPT_INJECTION,
         DetectorType.TOXICITY,
-        DetectorType.PII,
+        DetectorType.PII_LEAK,
         DetectorType.HALLUCINATION,
         DetectorType.BIAS,
     ],
@@ -298,7 +294,7 @@ from avaliar.detectors import Detector, DetectorType
 detector = Detector([
     DetectorType.PROMPT_INJECTION,
     DetectorType.TOXICITY,
-    DetectorType.PII,
+    DetectorType.PII_LEAK,
 ])
 
 async def validate_user_input(user_input: str) -> bool:
@@ -411,7 +407,7 @@ async def search_knowledge_base(query: str) -> str:
     detectors=[
         DetectorType.PROMPT_INJECTION,
         DetectorType.TOXICITY,
-        DetectorType.PII,
+        DetectorType.PII_LEAK,
         DetectorType.HALLUCINATION,
         DetectorType.BIAS,
     ],

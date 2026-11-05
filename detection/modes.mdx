@@ -12,31 +12,32 @@ When using the Avaliar SDK, you can choose between two detection modes: **local*
 
 ## Local Detection
 
-Local detection runs entirely on **your** infrastructure using the `avaliar_eval` package and your OpenAI API key. After a traced function returns, a background thread runs all configured detectors and then posts the complete trace (with detection results) to the Avaliar backend.
+Local detection runs the detectors inside **your** process, so prompts and answers are checked before anything leaves your infrastructure. After a traced function returns, a background thread runs the configured detectors, then posts the trace with the results to Avaliar.
 
 ### Requirements
 
-- `pip install avaliar_eval` — the local detection engine
-- The `OPENAI_API_KEY` environment variable must be set in your runtime environment
+- Avaliar's detection engine. It is **not on PyPI**: it is shared with approved customers. [Request access](https://github.com/avaliar-ai/python-sdk#local-detection); once approved you get install instructions for your environment.
+- A judge model key for the engine (for example `OPENAI_API_KEY`).
+
+Without the engine, the SDK warns once and sends traces without local results.
 
 ### How it works
 
 1. Your traced function executes and returns a result to the caller
-2. A background thread picks up the trace data (prompt + response)
-3. Detection runs locally using the `avaliar_eval` package and your OpenAI API key
-4. The complete trace — including detection results — is posted to Avaliar
+2. A background thread picks up the prompt and response
+3. The detection engine runs the detectors in your process
+4. The trace, including detection results, is posted to Avaliar
 
 ### Pros and cons
 
 **Pros:**
-- Data stays on your infrastructure until the final trace post
-- Fast feedback loop during development
-- Full control over the detection pipeline
+- Content is checked before it leaves your infrastructure
+- No Pro plan needed for detection
 
 **Cons:**
-- Requires an OpenAI API key (additional cost)
-- Uses your compute resources
-- You manage the `avaliar_eval` dependency and its updates
+- Access is by request
+- Uses your compute and your judge model key
+- You update the engine yourself
 
 ### Best for
 
@@ -46,8 +47,14 @@ Development, testing, and environments where data cannot leave your infrastructu
 
 ```python
 from avaliar import traceable
+from avaliar.detectors import DetectorType
 
-@traceable(detection_mode="local")
+@traceable(
+    "llm",
+    detection=True,
+    detectors=[DetectorType.TOXICITY, DetectorType.PII_LEAK],
+    detection_mode="local",
+)
 def summarize(text: str) -> str:
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -64,8 +71,8 @@ Cloud detection offloads all analysis to Avaliar's backend infrastructure. The t
 
 ### Requirements
 
-- No additional API keys or infrastructure needed
-- An active Avaliar API key with SDK scope (already required for tracing)
+- A **Pro** plan
+- An Avaliar API key with SDK scope (already required for tracing)
 
 ### How it works
 
@@ -94,8 +101,14 @@ Production deployments where you want minimal infrastructure overhead.
 
 ```python
 from avaliar import traceable
+from avaliar.detectors import DetectorType
 
-@traceable(detection_mode="cloud")
+@traceable(
+    "llm",
+    detection=True,
+    detectors=[DetectorType.TOXICITY, DetectorType.PII_LEAK],
+    detection_mode="cloud",
+)
 def summarize(text: str) -> str:
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -111,11 +124,11 @@ def summarize(text: str) -> str:
 | | Local | Cloud |
 |---|---|---|
 | **Data location** | Your infrastructure | Avaliar backend |
-| **Extra dependencies** | `avaliar_eval`, OpenAI key | None |
+| **Extra dependencies** | Detection engine (on request), judge model key | None |
 | **Compute cost** | Your resources | Included in Avaliar plan |
-| **Detector updates** | Manual package updates | Automatic |
+| **Detector updates** | You update the engine | Automatic |
 | **Setup complexity** | Medium | Low |
-| **Recommended for** | Development | Production |
+| **Recommended for** | Data that must stay in your environment | Most production apps |
 
 <Tip>
   Start with **local** mode during development for fast feedback, then switch to **cloud** in production to minimize overhead on your application.

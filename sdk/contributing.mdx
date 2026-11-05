@@ -14,7 +14,7 @@ The Avaliar Python SDK is open source and welcomes contributions. This guide cov
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | 3.13+ | Required. Earlier versions are not supported. |
+| Python | 3.10+ | The SDK supports 3.10 to 3.13; CI tests all four. |
 | Git | Any | For cloning and branching. |
 | `uv` | Latest | Recommended package manager. See install instructions below. |
 
@@ -51,12 +51,12 @@ Install the package in editable mode with development dependencies:
 uv sync --dev
 ```
 
-This installs the SDK itself, plus all dev tools: `mypy`, `ruff`, and `pre-commit`.
+This installs the SDK itself, plus all dev tools: `pytest`, `mypy`, `ruff`, and `pre-commit`. Add `--extra benchmarks` to work on benchmarks or evals.
 
 Alternatively, using pip:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e . pytest mypy ruff
 ```
 
 ### 3. Install pre-commit hooks
@@ -70,8 +70,7 @@ Pre-commit runs type checking and linting automatically before every commit.
 ### 4. Set environment variables
 
 ```bash
-export AVALIAR_API_KEY="your-api-key-from-avaliar.ai"
-export OPENAI_API_KEY="your-openai-key"  # Only needed for local detection mode
+export AVALIAR_API_KEY="your-api-key"   # only to send real traces; tests need none
 ```
 
 ## Project Structure
@@ -79,16 +78,18 @@ export OPENAI_API_KEY="your-openai-key"  # Only needed for local detection mode
 ```
 python-sdk/
 ├── avaliar/
-│   ├── __init__.py              # Public exports: traceable, AvaliarBaseLLM, PromptBlockedError
-│   ├── trace.py                 # @traceable decorator — the core entry point
-│   ├── run_tree.py              # RunTree class, span lifecycle, context tracking
-│   ├── client.py                # HTTP client with retry logic
+│   ├── __init__.py              # Public exports: traceable, session, flush, errors...
+│   ├── trace.py                 # @traceable decorator and the blocking prompt gate
+│   ├── run_tree.py              # RunTree: one span, its serialization and sending
+│   ├── client.py                # HTTP client: timeouts, retries, error mapping
+│   ├── _transport.py            # Background queue that sends spans
+│   ├── _extract.py              # Reads prompt/answer text from provider objects
 │   ├── schemas.py               # Pydantic models (Run, GenerationInfo, LLMInputMessage)
 │   ├── detectors/
 │   │   ├── __init__.py          # Exports: DetectorType, Detector
 │   │   └── evaluator.py         # Detector class with rich console output
 │   ├── _evals/
-│   │   └── eval.py              # DetectionRunner — spawns detection threads (internal)
+│   │   └── eval.py              # DetectionRunner: local detection in a thread
 │   ├── models/
 │   │   └── base.py              # AvaliarBaseLLM abstract class and TestCase model
 │   ├── benchmarks/
@@ -108,6 +109,7 @@ python-sdk/
 │   │   └── _uuid.py             # UUIDv7 generation
 │   └── errors/
 │       └── client_errors.py     # Exception hierarchy
+├── tests/                       # pytest suite against an in-process fake API
 ├── pyproject.toml               # Package config, deps, tool settings
 └── README.md
 ```
@@ -117,8 +119,14 @@ python-sdk/
 Run these from the project root:
 
 ```bash
+# Tests (no network or API key needed)
+uv run pytest
+
+# On another Python version
+uv run --python 3.10 pytest
+
 # Type checking
-uv run mypy avaliar/
+uv run mypy avaliar tests
 
 # Linting (with auto-fix)
 uv run ruff check avaliar/
@@ -138,7 +146,7 @@ The project uses `ruff` for both linting and formatting. Key settings (from `pyp
 
 - Line length: **79 characters**
 - Quote style: **double quotes**
-- Python target: **3.13**
+- Python target: **3.10** (keep syntax 3.10-compatible: no `type X = ...`, no `def f[T]()`)
 
 Run `ruff format avaliar/` before committing. Pre-commit does this automatically.
 
@@ -247,25 +255,13 @@ class MyBenchmark(BaseBenchmark):
 
 ## Adding a New Detector
 
-Detectors are provided by the `avaliar_eval` package (a separate dependency). The SDK itself does not implement detection algorithms — it routes data to `avaliar_eval` and handles the results.
-
-If you want to extend detection, contribute to the `avaliar_eval` package or open an issue describing the new detector type.
+Detection itself lives in Avaliar's detection engine, which is not part of this repository. The SDK only names detectors (`avaliar/detectors/types.py`, kept in sync with the backend) and routes data to the engine. To propose a new detector, open an issue describing what it should catch.
 
 ## Troubleshooting Local Setup
 
 **`ModuleNotFoundError: No module named 'avaliar_eval'`**
 
-The detection engine is a separate package. Install it:
-
-```bash
-pip install avaliar_eval
-```
-
-Or install the SDK with the optional detection extra (once added):
-
-```bash
-pip install "avaliar-python-sdk[detection]"
-```
+That is the local detection engine, which is shared on request and not needed for development: the tests run without it.
 
 **`mypy` errors on build directory**
 

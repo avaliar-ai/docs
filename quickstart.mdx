@@ -217,9 +217,8 @@ under **Settings → API Keys** — the only difference is the scope you pick.
             detection=True,
             detectors=[
                 DetectorType.PROMPT_INJECTION,
-                DetectorType.JAILBREAK,
                 DetectorType.TOXICITY,
-                DetectorType.PII,
+                DetectorType.PII_LEAK,
                 DetectorType.BIAS,
                 DetectorType.HALLUCINATION,
             ],

@@ -431,7 +431,7 @@ async def internal_summarize(messages: list) -> str:
     model="gpt-4o",
     provider="openai",
     detection=True,
-    detectors=[DetectorType.PII, DetectorType.TOXICITY],
+    detectors=[DetectorType.PII_LEAK, DetectorType.TOXICITY],
     detection_mode="cloud",
 )
 async def user_facing_response(messages: list) -> str:
@@ -444,7 +444,7 @@ async def user_facing_response(messages: list) -> str:
 | | Local | Cloud |
 |---|---|---|
 | Where it runs | Your infrastructure | Avaliar's servers |
-| Additional dependencies | `avaliar_eval`, `OPENAI_API_KEY` | None |
+| Additional dependencies | Avaliar's detection engine, [on request](/sdk/detection#detection-modes) | None |
 | Latency | Depends on your hardware | Low, managed |
 | Data leaves your environment | No | Yes |
 | Plan requirement | Free | Pro |

@@ -16,7 +16,8 @@ from avaliar import traceable
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `span_type` | `"llm"` \| `"tool"` \| `"agent"` \| `"generic"` | required | Type of operation being traced |
+| `span_type` | `"llm"` \| `"tool"` \| `"agent"` \| `"generic"` | `"generic"` | Type of operation being traced. Bare `@traceable` traces a generic span. |
+| `name` | `str` | function name | Name shown for the span |
 | `model` | `str` | `None` | LLM model name (llm spans only) |
 | `provider` | `str` | `None` | Provider name (llm spans only) |
 | `temperature` | `float` | `None` | Sampling temperature (llm spans only) |
@@ -24,7 +25,13 @@ from avaliar import traceable
 | `detection` | `bool` | `False` | Enable safety detection on this span |
 | `detectors` | `list[DetectorType]` | `[]` | Specific detectors to run |
 | `detection_mode` | `"local"` \| `"cloud"` | `"local"` | Where detection processing runs |
-| `blocking` | `bool` | `False` | Submit the prompt to Avaliar before calling the LLM. Raises `PromptBlockedError` if blocked. Requires Pro plan and `span_type="llm"`. |
+| `retrieval_context` | `list[str]` \| `str` | `None` | Sources the answer should be grounded in, for the hallucination detector |
+| `blocking` | `bool` | `False` | Check the prompt before calling the LLM. Raises `PromptBlockedError` if blocked. Requires Pro plan and `span_type="llm"`. |
+| `on_block` | `"raise"` \| `"reply"` | `"raise"` | `"reply"` returns the workspace's blocked reply instead of raising |
+| `fail_closed` | `bool` | `False` | Refuse the call when the prompt could not be checked, instead of letting it through |
+| `blocking_timeout` | `float` | `10` | Seconds the prompt check may take |
+
+An unknown argument raises `TypeError`, so a typo cannot silently turn a feature off. See [Detection and blocking](/sdk/detection) for blocking behaviour.
 
 ## Span Types
 
@@ -159,9 +166,9 @@ from avaliar.detectors import DetectorType
     detectors=[
         DetectorType.PROMPT_INJECTION,
         DetectorType.TOXICITY,
-        DetectorType.PII,
+        DetectorType.PII_LEAK,
     ],
-    detection_mode="local",
+    detection_mode="cloud",
 )
 async def safe_generate(messages: list) -> str:
     response = await client.chat.completions.create(
@@ -196,7 +203,7 @@ def generate_sync(messages: list) -> str:
 
 ### Generator Tracing
 
-Trace generator functions that yield results incrementally. The SDK captures the full concatenated output once the generator completes.
+Trace generator functions that yield results incrementally. The SDK joins the streamed text into the span's answer, whether you yield strings or the provider's raw chunks (OpenAI, Anthropic, Responses API events). Usage on the final chunk is captured too. If the caller stops reading early, what was streamed so far is still recorded.
 
 ```python
 @traceable(
@@ -216,42 +223,28 @@ async def stream_generate(messages: list):
             yield content
 ```
 
-## Updating token usage
+## Token usage
 
-Use `update_current_llm_run` to attach token counts to the current LLM span:
+Token counts and the model name are read automatically from OpenAI, Anthropic and Google GenAI responses, including streamed ones, so cost shows without extra code. Return the provider's response object (or yield its chunks) and the SDK finds the usage.
+
+When your function returns only a string, set the counts yourself:
 
 ```python
-from avaliar import traceable
-from avaliar.trace import update_current_llm_run
-from openai import AsyncOpenAI
-
-client = AsyncOpenAI()
+import avaliar
 
 @traceable("llm", model="gpt-4o", provider="openai")
-async def generate(messages: list) -> str:
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-    )
-    update_current_llm_run(
+def generate(messages: list) -> str:
+    response = client.chat.completions.create(model="gpt-4o", messages=messages)
+    avaliar.update_current_llm_run(
         input_tokens=response.usage.prompt_tokens,
         output_tokens=response.usage.completion_tokens,
     )
     return response.choices[0].message.content
 ```
 
-<Note>
-  Call `update_current_llm_run` from inside the decorated function, before returning. Token counts appear in the Traces dashboard and are included in cost calculations.
-</Note>
-
 ## LLM message extraction
 
-When `span_type="llm"`, the SDK automatically extracts input messages for tracing. It looks for messages in two places:
-
-1. The first positional argument: `generate(messages)`
-2. The `messages` keyword argument: `generate(messages=[...])`
-
-Messages should follow the standard role/content format:
+For `span_type="llm"`, the SDK records the conversation the function was called with. It looks at the `messages=`, `contents=` or `input=` keyword, then the first positional argument, and understands OpenAI, Anthropic (including the separate `system=` prompt) and Gemini shapes:
 
 ```python
 messages = [
@@ -260,7 +253,18 @@ messages = [
 ]
 ```
 
-If the SDK cannot find messages in either location, a warning is emitted and the trace is still submitted without message data.
+`developer` turns are recorded as system, tool results as assistant turns, and multimodal content keeps its text parts. When no messages are found, the trace is still sent without them.
+
+## The current span
+
+`avaliar.get_current_run()` returns the span being traced, for example to attach per-call sources:
+
+```python
+@traceable("llm")
+def answer(question: str, docs: list[str]):
+    avaliar.get_current_run().retrieval_context = docs
+    ...
+```
 
 ## How It Works
 
@@ -272,12 +276,12 @@ If the SDK cannot find messages in either location, a warning is emitted and the
     As your code executes, the SDK builds a **trace tree** from the parent-child relationships between spans. Each span records its inputs, outputs, start time, end time, and any associated metadata.
   </Step>
   <Step title="Background Submission">
-    Once the outermost span completes, the full trace tree is serialized and **submitted to the Avaliar API in a background thread**. Your application code is never blocked by trace submission.
+    Each span is queued as it finishes and sent by a background worker. Your code never waits on the network, and the queue is flushed when the process exits.
   </Step>
 </Steps>
 
 <Note>
-  Traces are submitted in background threads and will never block your application. If the Avaliar API is unreachable, traces are silently dropped -- your application continues to run normally.
+  Sending never blocks or breaks your application. If the Avaliar API is unreachable, sending is retried, then the trace is dropped with one logged warning. In serverless handlers, call `avaliar.flush()` before returning.
 </Note>
 
 <Tip>
