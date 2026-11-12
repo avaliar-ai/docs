@@ -8,14 +8,17 @@ Avaliar is an AI observability platform that monitors, detects, and fixes safety
 
 ### Documentation Structure
 
-- **Getting Started** — Platform overview, quickstart guide, core concepts
-- **Python SDK** — Installation, `@traceable` decorator, detection, benchmarks
-- **Proxy Integration** — Proxy gateway setup and architecture
-- **Detection** — 6 detector types, local vs cloud modes
-- **Benchmarks & Evals** — MMLU, DROP, HellaSwag, TruthfulQA, BigBenchHard, HumanEval, BBQ, HEx-PHI
-- **Platform** — Traces, analytics, alerts, reports, team management, API keys
-- **Architecture** — Event-sourced trace system, data flow
-- **API Reference** — Complete REST API documentation with OpenAPI spec
+- **Getting Started**: platform overview, quickstart guide, core concepts
+- **Python SDK**: the open-source runtime guard (installation, quickstart, `Guard`, policy file, detectors, deep check, evidence, error handling)
+- **SDK checkpoints**: input, output, tool call, tool result, action
+- **SDK integrations and cloud**: OpenAI Agents, LangChain, MCP, OpenTelemetry, Avaliar Cloud link, network calls
+- **SDK tools**: CLI reference, red-team, contributing
+- **Proxy Integration**: Proxy gateway setup and architecture
+- **OpenTelemetry**: OTLP ingestion
+- **Detection**: detector types, where detection runs
+- **Platform**: Traces, analytics, alerts, policies, reports, team management, API keys
+- **Architecture**: data flow
+- **API Reference**: complete REST API documentation with OpenAPI spec
 
 ## Development
 
@@ -48,12 +51,12 @@ in `docs.json`, or substantially rewritten:
 python scripts/generate_llms_txt.py
 ```
 
-- `llms.txt` — the index: a summary of the platform plus a linked, grouped map of every page.
-- `llms-full.txt` — every page's full text flattened into one file, with Mintlify
+- `llms.txt`: the index, a summary of the platform plus a linked, grouped map of every page.
+- `llms-full.txt`: every page's full text flattened into one file, with Mintlify
   components (`<Card>`, `<Step>`, `<Tab>`, `<Accordion>`, `<Note>`, …) converted to
   plain markdown.
 
-The curated intro shared by both files lives in `scripts/llms_intro.md` — edit that
+The curated intro shared by both files lives in `scripts/llms_intro.md`; edit that
 rather than the generated output. Committing these files to the repo root overrides
 Mintlify's auto-generated versions. Set `DOCS_BASE_URL` if the docs move off
 `https://docs.avaliar.ai`.

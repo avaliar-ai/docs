@@ -1,8 +1,8 @@
 # Avaliar AI
 
-> Avaliar is an AI runtime governance platform. It monitors LLM applications in production, detects safety issues in every request and response, and produces the evidence trail needed for AI risk and compliance reporting. Teams integrate in one of three ways: the Python SDK (`@traceable` decorator), the OpenAI-compatible Proxy (change one base URL, no code change), or OpenTelemetry OTLP ingestion from any language or framework.
+> Avaliar is an AI runtime governance platform. It monitors LLM applications in production, detects safety issues in every request and response, and produces the evidence trail needed for AI risk and compliance reporting. Teams integrate in one of three ways: the open-source Python SDK (a runtime guard inside the app: `Guard` checks at five checkpoints, decided by a policy file `avaliar.yaml`, recorded in a hash-chained local evidence log), the OpenAI-compatible Proxy (change one base URL, no code change), or OpenTelemetry OTLP ingestion from any language or framework.
 
-Core model: every LLM interaction is captured as a **trace** made of **spans** (`llm`, `tool`, `agent`, `generic`). Traces run through a **detection** pipeline of ten built-in detectors (prompt injection, toxicity, PII, bias, hallucination, misinformation, misuse, graphic content, illegal activities, personal safety), which produce **issues** carrying a type, severity (`low`/`medium`/`high`/`critical`), confidence, and excerpt. Issues are evaluated against **alert** rules and **policies**, and roll up into **reports**. Separately, **benchmarks** (MMLU, DROP, HellaSwag, TruthfulQA, BigBenchHard, HumanEval) measure model capability and **evals** (BBQ, BOLD, HExPHI, RealToxicityPrompts) measure bias and harm.
+Core model: every LLM interaction is captured as a **trace** made of **spans** (`llm`, `tool`, `agent`, `generic`). Traces run through a **detection** pipeline of ten built-in detectors (prompt injection, toxicity, PII, bias, hallucination, misinformation, misuse, graphic content, illegal activities, personal safety), which produce **issues** carrying a type, severity (`low`/`medium`/`high`/`critical`), confidence, and excerpt. Issues are evaluated against **alert** rules and **policies**, and roll up into **reports**. The Python SDK checks in the app's own process instead: rules (tier 0), local ONNX models (tier 1, `[local]` extra) and an optional deep check (tier 2: local Clef-Flash, Jev, LLM APIs, or Avaliar Cloud) score sixteen categories, and each decision is `allow`, `warn`, `redact`, `block` or `approve`.
 
 Key endpoints and facts an agent should know before answering questions about Avaliar:
 
@@ -10,27 +10,48 @@ Key endpoints and facts an agent should know before answering questions about Av
 - Dashboard: https://app.avaliar.ai. API keys live under Settings, API Keys, and are scoped `sdk` or `proxy`.
 - API: the SDK has the API URL built in; `AVALIAR_API_URL` overrides it. Auth via `AVALIAR_API_KEY` (header `X-API-KEY`).
 - Proxy base URL: `https://proxy-api-ckjd.onrender.com/v1`, OpenAI-compatible, models are OpenRouter slugs such as `openai/gpt-4o`.
-- Python SDK: `pip install avaliar-python-sdk` (Python 3.10+; benchmarks and evals via the `[benchmarks]` extra). Local detection needs Avaliar's detection engine, which is shared on request, not on PyPI. With `blocking=True` the SDK fails open if the prompt cannot be checked, unless `fail_closed=True`.
-- Plans: tracing and cloud/local detection are available on the free plan. Blocking mode (pre-LLM prompt gating) and the Proxy require Pro.
+- Python SDK: `pip install avaliar-python-sdk`, import `avaliar`, Python 3.11+. Extras: `local`, `otel`, `openai-agents`, `langchain`, `mcp`. `from avaliar import Guard; guard = Guard()` reads `./avaliar.yaml`; checks are `check_input`, `check_output`, `check_tool_call`, `check_tool_result`, `check_action` (async twins `acheck_*`), `check_tool_definitions` and `@guard.tool`. Checks return a `Decision` and never raise, except `AvaliarPolicyError` at construction and the opt-in `GuardBlocked` / `GuardUnavailable`. CLI: `avaliar setup`, `init`, `doctor`, `scan`, `logs`, `stats`, `verify`, `redteam`, `models`, `judge`, `sync`, `detectors`, `policy`. It makes no network calls to Avaliar without `AVALIAR_API_KEY`; with it, evidence records upload and guard traces appear on the dashboard. `@traceable` is now only an optional OpenTelemetry span helper.
+- Plans: the Python SDK needs no account. Linking it to the dashboard uses an `sdk`-scoped key; the Avaliar Cloud deep check (`judge.provider: avaliar`) and the Proxy require Pro.
 
 This file is generated from the documentation source. `llms.txt` is the index; `llms-full.txt` contains the complete text of every page.
 
 ## Getting Started
 
 - [Introduction](https://docs.avaliar.ai/index.md): AI Runtime governance platform that monitors, detects, and provides evidence of AI risk in production
-- [Quickstart](https://docs.avaliar.ai/quickstart.md): Start monitoring your LLM calls with Avaliar in 5 minutes — via the Proxy API or the Python SDK
-- [Core Concepts](https://docs.avaliar.ai/concepts.md): The key building blocks of Avaliar — read this before diving into the detailed guides
+- [Quickstart](https://docs.avaliar.ai/quickstart.md): Start with Avaliar in 5 minutes: the Proxy API, or the open-source Python SDK guard
+- [Core Concepts](https://docs.avaliar.ai/concepts.md): The key building blocks of Avaliar. Read this before diving into the detailed guides
 
 ## Python SDK
 
-- [Installation](https://docs.avaliar.ai/sdk/installation.md): Install and configure the Avaliar Python SDK
-- [@traceable Decorator](https://docs.avaliar.ai/sdk/traceable.md): Instrument your LLM functions with automatic tracing
-- [Detection](https://docs.avaliar.ai/sdk/detection.md): Detect safety issues in your LLM applications, and block unsafe prompts
-- [Advanced Tracing](https://docs.avaliar.ai/sdk/advanced-tracing.md): Concurrent spans, multi-provider patterns, streaming, sync support, and custom metadata
-- [Tool Call Tracing](https://docs.avaliar.ai/sdk/tool-call-tracing.md): Trace every tool your agent calls — see exact inputs, outputs, and timing alongside the LLM spans that invoked them
-- [AvaliarBaseLLM](https://docs.avaliar.ai/sdk/base-llm.md): Implement the LLM interface for benchmarks and evaluations
-- [Error Handling](https://docs.avaliar.ai/sdk/error-handling.md): What the SDK raises, what it retries, and what it never lets break your app
-- [Example Application](https://docs.avaliar.ai/sdk/example-app.md): A complete, runnable customer support agent with tracing, detection, and error handling
+- [Installation](https://docs.avaliar.ai/sdk/installation.md): Install the Avaliar Python SDK, an open-source runtime guard for AI apps and agents
+- [SDK quickstart](https://docs.avaliar.ai/sdk/quickstart.md): Write a policy, guard your first message and read the evidence log, offline, in about five minutes
+- [Guard and decisions](https://docs.avaliar.ai/sdk/guard.md): The Guard class, the five checks, the Decision they return, context, approvals and async
+- [Policy file](https://docs.avaliar.ai/sdk/policy.md): avaliar.yaml: presets, rules, actions, budgets, the deep check, evidence and speed
+- [Detectors and categories](https://docs.avaliar.ai/sdk/detection.md): The sixteen categories, the detectors behind each, and the tiers that score them
+- [Your own examples](https://docs.avaliar.ai/sdk/examples.md): Teach a category what counts for your business, and what does not, without retraining
+- [Deep check](https://docs.avaliar.ai/sdk/deep-check.md): The optional tier 2 judge for what rules and local models are unsure about: on this machine or through an API
+- [Evidence and verify](https://docs.avaliar.ai/sdk/evidence.md): The hash-chained local log of every decision, what it records, and how to check it was not changed
+- [Error handling](https://docs.avaliar.ai/sdk/error-handling.md): Checks never raise. What can, when, and how faults inside the guard are handled
+
+## SDK checkpoints
+
+- [Input](https://docs.avaliar.ai/sdk/checkpoints/input.md): Check what the user sends before it reaches your model
+- [Output](https://docs.avaliar.ai/sdk/checkpoints/output.md): Check what the model answers before the user sees it
+- [Tool call](https://docs.avaliar.ai/sdk/checkpoints/tool-call.md): Check what the agent is about to run, before the tool runs
+- [Tool result](https://docs.avaliar.ai/sdk/checkpoints/tool-result.md): Check what comes back from a tool, a page or a document before the model reads it
+- [Action](https://docs.avaliar.ai/sdk/checkpoints/action.md): Check a step with real-world effect, and ask a person when the policy says so
+
+## SDK integrations and cloud
+
+- [Framework integrations](https://docs.avaliar.ai/sdk/integrations.md): One line to guard OpenAI Agents SDK, LangChain and MCP agents
+- [OpenTelemetry](https://docs.avaliar.ai/sdk/opentelemetry.md): A span for every check, and the optional @traceable helper for your own functions
+- [Connecting to Avaliar Cloud](https://docs.avaliar.ai/sdk/cloud.md): Set AVALIAR_API_KEY to upload guard evidence and see guard traces on your team's dashboard, with no code change
+- [What leaves your machine](https://docs.avaliar.ai/sdk/network.md): Every network call the SDK can make, when it makes it, and what it sends
+
+## SDK tools
+
+- [CLI reference](https://docs.avaliar.ai/sdk/cli.md): Every avaliar command and its flags
+- [Red-team](https://docs.avaliar.ai/sdk/redteam.md): Send a bundled attack pack through your real app and score what comes back, false positives included
 
 ## Proxy Integration
 
@@ -48,21 +69,7 @@ This file is generated from the documentation source. `llms.txt` is the index; `
 
 - [Detection Overview](https://docs.avaliar.ai/detection/overview.md): Automated safety analysis for your LLM applications
 - [Detector Types](https://docs.avaliar.ai/detection/detectors.md): The built-in detectors explained with examples
-- [Detection Modes](https://docs.avaliar.ai/detection/modes.md): Choose between local and cloud detection
-
-## Benchmarks
-
-- [Benchmarks Overview](https://docs.avaliar.ai/benchmarks/overview.md): Evaluate your LLM's capabilities with standardized benchmark suites
-- [Running Benchmarks](https://docs.avaliar.ai/benchmarks/running.md): Configuration, best practices, and tips for benchmark evaluation
-- [Available Benchmarks](https://docs.avaliar.ai/benchmarks/available.md): Detailed reference for each benchmark suite
-
-## Evals
-
-- [Evals Overview](https://docs.avaliar.ai/evals/overview.md): Bias and safety evaluation suites for LLMs
-- [BBQ](https://docs.avaliar.ai/evals/bbq.md): Bias Benchmark for Question Answering
-- [BOLD](https://docs.avaliar.ai/evals/bold.md): Bias in Open-ended Language Generation Dataset
-- [HExPHI](https://docs.avaliar.ai/evals/hex-phi.md): Harmful Instructions Evaluation
-- [RealToxicityPrompts](https://docs.avaliar.ai/evals/real-toxicity-prompts.md): Toxicity evaluation for open-ended generation
+- [Where detection runs](https://docs.avaliar.ai/detection/modes.md): In your process with the Python SDK, or on Avaliar's backend for Proxy and OpenTelemetry traffic
 
 ## Platform
 
@@ -80,7 +87,7 @@ This file is generated from the documentation source. `llms.txt` is the index; `
 
 ## Optional
 
-- [Contributing to the SDK](https://docs.avaliar.ai/sdk/contributing.md): Local development setup, project layout, and release process for the Python SDK.
+- [Contributing to the SDK](https://docs.avaliar.ai/sdk/contributing.md): Local development setup, rules, and project layout for the Python SDK.
 - [Avaliar Dashboard](https://app.avaliar.ai): The web application where traces, issues, alerts, and reports live.
 - [Python SDK on PyPI](https://pypi.org/project/avaliar-python-sdk/): Package releases and version history.
 - [GitHub organization](https://github.com/avaliar-ai): Source repositories.

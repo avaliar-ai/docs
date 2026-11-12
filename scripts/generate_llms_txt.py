@@ -269,7 +269,7 @@ def main() -> int:
         "## Optional",
         "",
         "- [Contributing to the SDK](https://docs.avaliar.ai/sdk/contributing.md): "
-        "Local development setup, project layout, and release process for the Python SDK.",
+        "Local development setup, rules, and project layout for the Python SDK.",
         "- [Avaliar Dashboard](https://app.avaliar.ai): "
         "The web application where traces, issues, alerts, and reports live.",
         "- [Python SDK on PyPI](https://pypi.org/project/avaliar-python-sdk/): "
