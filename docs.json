@@ -25,13 +25,40 @@
             "group": "Python SDK",
             "pages": [
               "sdk/installation",
-              "sdk/traceable",
+              "sdk/quickstart",
+              "sdk/guard",
+              "sdk/policy",
               "sdk/detection",
-              "sdk/advanced-tracing",
-              "sdk/tool-call-tracing",
-              "sdk/base-llm",
-              "sdk/error-handling",
-              "sdk/example-app",
+              "sdk/examples",
+              "sdk/deep-check",
+              "sdk/evidence",
+              "sdk/error-handling"
+            ]
+          },
+          {
+            "group": "SDK checkpoints",
+            "pages": [
+              "sdk/checkpoints/input",
+              "sdk/checkpoints/output",
+              "sdk/checkpoints/tool-call",
+              "sdk/checkpoints/tool-result",
+              "sdk/checkpoints/action"
+            ]
+          },
+          {
+            "group": "SDK integrations and cloud",
+            "pages": [
+              "sdk/integrations",
+              "sdk/opentelemetry",
+              "sdk/cloud",
+              "sdk/network"
+            ]
+          },
+          {
+            "group": "SDK tools",
+            "pages": [
+              "sdk/cli",
+              "sdk/redteam",
               "sdk/contributing"
             ]
           },
@@ -57,24 +84,6 @@
               "detection/overview",
               "detection/detectors",
               "detection/modes"
-            ]
-          },
-          {
-            "group": "Benchmarks",
-            "pages": [
-              "benchmarks/overview",
-              "benchmarks/running",
-              "benchmarks/available"
-            ]
-          },
-          {
-            "group": "Evals",
-            "pages": [
-              "evals/overview",
-              "evals/bbq",
-              "evals/bold",
-              "evals/hex-phi",
-              "evals/real-toxicity-prompts"
             ]
           },
           {
@@ -113,6 +122,36 @@
       ]
     }
   },
+  "redirects": [
+    {
+      "source": "/sdk/traceable",
+      "destination": "/sdk/opentelemetry"
+    },
+    {
+      "source": "/sdk/advanced-tracing",
+      "destination": "/sdk/opentelemetry"
+    },
+    {
+      "source": "/sdk/tool-call-tracing",
+      "destination": "/sdk/checkpoints/tool-call"
+    },
+    {
+      "source": "/sdk/base-llm",
+      "destination": "/sdk/quickstart"
+    },
+    {
+      "source": "/sdk/example-app",
+      "destination": "/sdk/quickstart"
+    },
+    {
+      "source": "/benchmarks/:slug*",
+      "destination": "/sdk/redteam"
+    },
+    {
+      "source": "/evals/:slug*",
+      "destination": "/sdk/redteam"
+    }
+  ],
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
