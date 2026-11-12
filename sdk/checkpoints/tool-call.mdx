@@ -1,0 +1,70 @@
+---
+title: "Tool call"
+description: "Check what the agent is about to run, before the tool runs"
+icon: "wrench"
+---
+
+## When to call it
+
+Before a tool runs, with its name and arguments. `@guard.tool` does this, and the [tool result](/sdk/checkpoints/tool-result) check, for you:
+
+```python
+@guard.tool
+def send_email(to: str, body: str) -> str: ...
+
+# or by hand
+d = guard.check_tool_call("send_email", {"to": to, "body": body})
+if d.action == "approve":
+    d = guard.approve(d)      # asks your approval_handler
+d.raise_for_block()
+```
+
+`d.args` holds the arguments with any redactions applied; call the tool with them. An `approve` decision waits for `guard.approve(d)`; without an `approval_handler` it is denied. See [Approvals](/sdk/guard#approvals).
+
+### `@guard.tool`
+
+The decorator checks the call before the function runs and its result after, and passes redacted arguments to the function. It works on plain and async functions and on generators (their output is checked once it is joined).
+
+```python
+@guard.tool(name="crm.lookup", on_block="return")
+async def lookup(customer_id: str) -> dict: ...
+```
+
+On a block the function is not called. By default `GuardBlocked` is raised; with `on_block="return"` the policy's reply string is returned instead, which suits a tool whose output goes straight back to the model. `name` overrides the function name used in rules and evidence.
+
+Default time budget: 300 ms (`tool_call.budget_ms`). A deep check, when configured, may take `judge.timeout_ms` on top unless `judge.within_budget: true`.
+
+## The recommended preset here
+
+| Rule | Action | Threshold |
+|---|---|---|
+| sensitive data.secrets | block | category default |
+| data leak | block | 0.8 |
+| tool misuse.args | approve | 0.8 |
+| tool misuse.taint | warn | category default |
+| tool misuse.loops | block | category default |
+
+Tool and action rules allow everything by default (`"*": {action: allow}`); name the tools that need approval or must never run:
+
+```yaml
+tool_call:
+  rules:
+    tools:
+      send_email: { action: approve }
+      run_sql:    { deny_args: { query: ["(?i)\\bdrop\\b"] } }
+      "admin_*":  { action: block }
+```
+
+## Categories that can run here
+
+| Category | Default threshold | Deep check | Needs | What it catches |
+|---|---|---|---|---|
+| blocklist | 0.5 | no | base install | Your own banned terms and patterns |
+| custom | 0.7 | yes | a deep check | Your own criteria in plain English (`custom.<name>` with `criteria`) |
+| data leak | 0.7 | no | base install | Data leaving through links and images, and the system prompt or a canary showing up; parts `links` and `system_prompt` |
+| hidden text | 0.5 | no | base install | Invisible or disguised characters: Unicode tags, bidi controls, zero-width runs, lookalike letters |
+| sensitive data | 0.5 | yes | base install | Personal data and secrets (keys, tokens, passwords); parts `personal` and `secrets` |
+| tool misuse | 0.7 | no | base install | Dangerous arguments, values from untrusted tool output driving a call, and runaway loops; parts `args`, `taint` and `loops` |
+| tools | 1.0 | no | base install | Your tool name and argument rules |
+
+See [Detectors and categories](/sdk/detection) for the detectors behind each category and [Policy file](/sdk/policy) for every rule option.

@@ -1,0 +1,45 @@
+---
+title: "Input"
+description: "Check what the user sends before it reaches your model"
+icon: "right-to-bracket"
+---
+
+## When to call it
+
+Before the message reaches your model. Pass the text, or the whole chat as a list of `{"role", "content"}` messages. With a chat, the last user message is checked by default; `scan` on the checkpoint changes which messages are read (see [Policy file](/sdk/policy#checkpoints)).
+
+```python
+d = guard.check_input(user_message)
+if d.blocked:
+    return d.reply            # the policy's block reply
+prompt = d.text               # redacted when a rule redacts
+```
+
+Send `d.text`, not the original, so redactions take effect. Uncertain categories that only warn may be checked after the reply (`speed.warn_after_reply`); their records follow the decision in the evidence log.
+
+Default time budget: 300 ms (`input.budget_ms`). A deep check, when configured, may take `judge.timeout_ms` on top unless `judge.within_budget: true`.
+
+## The recommended preset here
+
+| Rule | Action | Threshold |
+|---|---|---|
+| prompt injection | block | 0.8 |
+| hidden text | block | 0.8 |
+| sensitive data | redact | category default |
+
+## Categories that can run here
+
+| Category | Default threshold | Deep check | Needs | What it catches |
+|---|---|---|---|---|
+| blocklist | 0.5 | no | base install | Your own banned terms and patterns |
+| custom | 0.7 | yes | a deep check | Your own criteria in plain English (`custom.<name>` with `criteria`) |
+| gibberish | 0.7 | yes | a deep check for word salad | Keyboard mash, junk, token floods, word salad |
+| harmful content | 0.7 | yes | a deep check | Bias, misinformation, misuse, graphic, illegal, personal safety, and personalised medical, legal or financial advice |
+| hidden text | 0.5 | no | base install | Invisible or disguised characters: Unicode tags, bidi controls, zero-width runs, lookalike letters |
+| language | 0.5 | no | base install | Not in the languages you allow |
+| off topic | 0.85 | yes | a local model or a deep check | Outside the topics you allow |
+| prompt injection | 0.8 | yes | `[local]` for the models | Attempts to take over or talk the model out of its rules: injected instructions, jailbreaks, poisoned tool descriptions |
+| sensitive data | 0.5 | yes | base install | Personal data and secrets (keys, tokens, passwords); parts `personal` and `secrets` |
+| toxicity | 0.8 | yes | `[local]` for the model | Abuse, harassment, threats |
+
+See [Detectors and categories](/sdk/detection) for the detectors behind each category and [Policy file](/sdk/policy) for every rule option.

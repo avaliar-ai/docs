@@ -1,0 +1,68 @@
+---
+title: "Your own examples"
+description: "Teach a category what counts for your business, and what does not, without retraining"
+icon: "list-check"
+---
+
+Models miss things that matter to one business and flag things that are fine for another. Examples fix both: give a category texts that must count (`flag`) and texts that must not (`allow`), and the guard uses them at every tier.
+
+## In the policy file
+
+```yaml
+version: 1
+extends: recommended
+
+examples:
+  toxicity:
+    flag:  ["you lot are vermin", "go back to your village"]
+    allow: ["this track is sick", "that exam murdered me"]
+  sensitive data.personal:
+    flag:  ["member number MBR"]
+    file:  examples/members.yaml        # more examples, from a file
+  harmful content.advice:
+    flag:  ["double your dose if the pain comes back"]
+    similarity: 0.85                    # stricter near-copy matching
+    tenants:
+      acme: { allow: ["take two tablets with water"] }   # one customer only
+```
+
+- A category (or one of its parts, such as `sensitive data.personal`) needs a rule at a checkpoint for its examples to act there.
+- `file` is read when the policy loads, relative to the policy file: `.txt` (one flag example per line, `#` for comments), `.yaml` (`flag:` and `allow:` lists) or `.jsonl` (`{"text": "...", "flag": false}` per line). Its contents count toward the policy hash.
+- `extends` merges examples per category: a child's set for a category replaces the parent's.
+- Every category except tools and actions takes examples.
+
+## From code
+
+For examples that live in your own database, or that your customers manage in your product:
+
+```python
+guard.add_examples("toxicity", flag=["you lot are vermin"], allow=["this track is sick"])
+guard.add_examples("sensitive data.personal", flag=["MBR-"], tenant="acme")
+
+with guard.context(tenant="acme"):      # acme's examples apply here
+    guard.check_input(message)
+```
+
+Examples without a tenant apply to everyone; tenant examples apply only to checks whose context carries that `tenant`, so one customer's rules never affect another's. An unknown category raises `AvaliarPolicyError`.
+
+## How they are used
+
+| Tier | What happens | Needs |
+|---|---|---|
+| Rules (0) | Text and examples are normalised (case, spacing, punctuation, zero-width and lookalike characters, leetspeak like `l0t`). A flag example inside the text, or text that is a near copy of one, flags the category. Text that is a near copy of an allow example clears it. | nothing |
+| Meaning (1) | Each sentence is compared with every flag example by embedding similarity. 0.85 or more flags; 0.65 to 0.85 is uncertain and goes to the deep check. Text 0.9 or more from an allow example clears the category. | `potion-base-8M` (`avaliar models pull potion-base-8M`) |
+| Deep check (2) | The examples closest to the text are sent with the request as the operator's word on what counts. | a deep check |
+
+**An allow example beats every detector.** If a model flags something you have marked as fine, the allow match wins and the decision says why (`matches your allow#2 example`). A flag example does not need to beat anything: it adds a finding, and the rule's action and threshold decide.
+
+`allow` matches near copies only, never containment, so allowing "this track is sick" does not allow "this track is sick and you are vermin". With `redact`, a matched flag example becomes `[REDACTED_1]` when its place in the text can be found.
+
+## Evidence
+
+Every evidence record carries the hash of the example set the decision was made under (examples added from code included), and each finding from an example names it (`flag#3`, `acme:allow#1`), never its text.
+
+## Limits
+
+- Meaning matching uses static embeddings: they know words, not syntax, so "you are not an idiot" sits close to "you are an idiot". That is why only a close match flags and a looser one goes to the deep check. Add allow examples for the near misses you see.
+- Examples are matched against the checked text only, not against earlier turns of a conversation.
+- Up to 5,000 examples per list, each at most 4,000 characters.

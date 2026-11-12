@@ -1,0 +1,53 @@
+---
+title: "Action"
+description: "Check a step with real-world effect, and ask a person when the policy says so"
+icon: "hand"
+---
+
+## When to call it
+
+Before something that cannot be undone: a payment, a delete, an email to a customer. Name it and pass its details; the policy's `actions` rules decide which need a person.
+
+```python
+d = guard.check_action("refund", {"amount": 420, "order": order_id})
+if d.action == "approve":
+    d = guard.approve(d)
+d.raise_for_block()
+```
+
+The approval (who, when, the answer) is written to the evidence log next to the decision. See [Approvals](/sdk/guard#approvals) for the handler.
+
+```yaml
+action:
+  rules:
+    actions:
+      refund:          { action: approve }
+      "delete_*":      { action: approve }
+      wire_transfer:   { allow_args: { currency: ["^(EUR|GBP)$"] }, action: approve }
+```
+
+Rules are keyed by exact name or glob; the exact name wins, then the longest glob. Any `deny_args` match blocks; an `allow_args` argument that is missing or matches nothing blocks; otherwise `action` applies.
+
+Default time budget: 300 ms (`action.budget_ms`). A deep check, when configured, may take `judge.timeout_ms` on top unless `judge.within_budget: true`.
+
+## The recommended preset here
+
+| Rule | Action | Threshold |
+|---|---|---|
+| tool misuse.args | approve | 0.8 |
+| tool misuse.taint | approve | category default |
+
+Action rules allow everything by default (`"*": {action: allow}`); name the ones that need approval or must never run.
+
+## Categories that can run here
+
+| Category | Default threshold | Deep check | Needs | What it catches |
+|---|---|---|---|---|
+| actions | 1.0 | no | base install | Your action approval rules |
+| blocklist | 0.5 | no | base install | Your own banned terms and patterns |
+| custom | 0.7 | yes | a deep check | Your own criteria in plain English (`custom.<name>` with `criteria`) |
+| hidden text | 0.5 | no | base install | Invisible or disguised characters: Unicode tags, bidi controls, zero-width runs, lookalike letters |
+| sensitive data | 0.5 | yes | base install | Personal data and secrets (keys, tokens, passwords); parts `personal` and `secrets` |
+| tool misuse | 0.7 | no | base install | Dangerous arguments, values from untrusted tool output driving a call, and runaway loops; parts `args`, `taint` and `loops` |
+
+See [Detectors and categories](/sdk/detection) for the detectors behind each category and [Policy file](/sdk/policy) for every rule option.

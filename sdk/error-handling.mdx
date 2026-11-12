@@ -1,97 +1,70 @@
 ---
-title: "Error Handling"
-description: "What the SDK raises, what it retries, and what it never lets break your app"
+title: "Error handling"
+description: "Checks never raise. What can, when, and how faults inside the guard are handled"
 icon: "triangle-exclamation"
 ---
 
-## The short version
+The guard is built never to break your app. A check returns a `Decision`; it does not raise for a block, for a model that failed, for a deep check that timed out, or for evidence that could not be written.
 
-- **Tracing never raises into your code.** If Avaliar is down, slow, or rejects a trace, your traced function still returns normally. Problems are logged once on the `avaliar` logger.
-- **Blocking can raise**, on purpose: `PromptBlockedError` when a prompt is blocked, and `AvaliarDetectionUnavailableError` when you chose `fail_closed=True` and the prompt could not be checked.
-- **Every request has a timeout.** A hung backend can never hang your app.
+Only three errors are ever raised, and two of them only when you ask:
 
-## Errors
+| Error | When | Carries |
+|---|---|---|
+| `AvaliarPolicyError` | The policy is invalid, at `Guard(...)` construction (or `guard.add_examples` with an unknown category). Never per check. | `source`, `line`, `field` |
+| `GuardBlocked` | A check blocks and you asked for an exception: `d.raise_for_block()`, `Guard(raise_on_block=True)`, or `@guard.tool` (by default) | `decision` |
+| `GuardUnavailable` | A check could not complete, the checkpoint is `on_error: fail_closed`, and `raise_on_block=True` | `decision` |
 
-All SDK errors inherit from `AvaliarError` and can be imported from `avaliar`.
-
-```
-AvaliarError
-├── AvaliarAPIError                    # 5xx from Avaliar
-├── AvaliarRequestTimeout              # Avaliar did not answer in time
-├── AvaliarConnectionError             # Avaliar could not be reached
-├── AvaliarRateLimitError              # 429
-├── AvaliarDetectionUnavailableError   # prompt not checked, fail_closed=True
-├── PromptBlockedError                 # prompt blocked (blocking=True)
-└── AvaliarUserError                   # the request itself is wrong (4xx)
-    ├── AvaliarAuthError               # 401: bad or revoked API key
-    ├── AvaliarPermissionError         # 403: e.g. a plan limit; .code says why
-    ├── AvaliarNotFoundError           # 404
-    ├── AvaliarConflictError           # 409
-    └── AvaliarConfigError             # SDK not configured, e.g. no API key
-```
-
-Error messages carry the server's explanation, for example `403: Cloud detection requires a Pro plan.`
-
-## PromptBlockedError
-
-Raised by a `blocking=True` function when Avaliar blocks the prompt. The model is not called.
+All three subclass `AvaliarError`. `AvaliarPolicyError` is also a `ValueError`.
 
 ```python
-from avaliar import traceable, PromptBlockedError
-
-@traceable("llm", blocking=True)
-async def generate(messages): ...
+from avaliar import AvaliarPolicyError, Guard, GuardBlocked
 
 try:
-    result = await generate(messages)
-except PromptBlockedError as e:
-    e.reason           # "Blocked: prompt_injection (97%)"
-    e.issues           # detected issues, possibly empty
-    e.blocked_message  # the workspace's reply text, or None
+    guard = Guard()
+except AvaliarPolicyError as e:
+    print(e.source, e.line, e.field, e)     # avaliar.yaml 12 input.rules.prompt injection.action ...
+    raise
+
+d = guard.check_input(message)
+if d.blocked:
+    return d.reply
+
+try:
+    guard.check_tool_call("send_email", args).raise_for_block()
+except GuardBlocked as e:
+    log.info("blocked: %s", e.decision.reasons)
 ```
 
-To get the reply text returned instead of an exception, use `on_block="reply"`. See [Blocking mode](/sdk/detection#blocking-mode).
+`raise_for_block()` raises for `block` and for `approve` (a decision still waiting for a person), and returns the decision otherwise, so it chains.
 
-## AvaliarDetectionUnavailableError
+## Faults inside the guard
 
-Raised only with `fail_closed=True`, when the prompt could not be checked: Avaliar was unreachable, timed out, or its detection service was down. The model is not called. Without `fail_closed`, these calls go through unchecked and one warning is logged.
+A detector, a model or the deep check that fails is caught inside the guard and recorded. The categories it was meant to score are listed in `d.not_evaluated` with a reason (`error`, `judge_unavailable`, `budget` and others), and never counted as clean. What happens next is the checkpoint's `on_error` in the policy:
 
-## Retries
+| `on_error` | Effect |
+|---|---|
+| `fail_open` (default) | The decision is made from what could be scored; the gap is recorded |
+| `fail_closed` | The check blocks when a category whose rule would block or ask for approval could not be evaluated |
 
-| Failure | Retried? |
-|---------|----------|
-| Connection error, timeout, 429, 5xx | Yes, up to 3 attempts with backoff (traces) |
-| 4xx (bad key, plan limit, invalid data) | No: it will not fix itself |
-
-The blocking prompt check is held to `blocking_timeout` (default 10s) in total. It is not retried on timeout, only once on a dropped connection.
-
-## Timeouts
-
-| Variable | Default | Applies to |
-|----------|---------|-----------|
-| `AVALIAR_TIMEOUT` | `10` | Sending traces |
-| `AVALIAR_BLOCKING_TIMEOUT` | `10` | The blocking prompt check (or `blocking_timeout=` per function) |
-| `AVALIAR_FLUSH_TIMEOUT` | `5` | Sending queued traces at process exit |
-
-## Making sure traces are sent
-
-Traces go through a background queue. Normal processes flush it at exit. Serverless handlers and batch jobs should flush explicitly:
-
-```python
-import avaliar
-
-def handler(event, context):
-    result = run_agent(event)
-    avaliar.flush(timeout=5)   # True when everything was sent
-    return result
+```yaml
+input:
+  on_error: fail_closed
 ```
 
-## Seeing what went wrong
+Rules that fire still decide as usual. If the guard cannot even apply its rules or write back a redaction, it blocks rather than hand back text a rule wanted changed.
 
-```python
-import logging
-logging.basicConfig()
-logging.getLogger("avaliar").setLevel(logging.INFO)
-```
+## Budgets
 
-Each distinct problem (a missing key, a rejected trace, a prompt that could not be checked) is logged once rather than once per span.
+Each checkpoint has a time budget (`budget_ms`). Categories that could not finish in time are `not_evaluated` with reason `budget`, and `on_error` applies. The deep check gets `judge.timeout_ms` on top unless `judge.within_budget: true`. After repeated deep check failures a circuit breaker stops calling it for a while, so an outage does not slow every check.
+
+## Evidence
+
+Evidence is written off the request path. A failed write logs a warning and sets `d.evidence_ok = False`; it never raises. With `evidence.required: true` the write is synchronous, a failure is recorded as `not_evaluated` (`evidence_write_failed`), and with `on_error: fail_closed` the check blocks.
+
+## Avaliar Cloud
+
+The cloud link never breaks checking. Uploads run on a background thread; an outage, a timeout or a refused batch leaves the records on disk to upload later, and is logged. See [Connecting to Avaliar Cloud](/sdk/cloud).
+
+## Logging
+
+Problems that need you are logged once to the `avaliar` logger at warning level: an invalid policy key with a warning, evidence that cannot be written, an unreachable deep check, a refused upload.

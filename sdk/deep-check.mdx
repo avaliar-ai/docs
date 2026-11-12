@@ -1,0 +1,63 @@
+---
+title: "Deep check"
+description: "The optional tier 2 judge for what rules and local models are unsure about: on this machine or through an API"
+icon: "scale-balanced"
+---
+
+Rules and the local models settle most messages in milliseconds. When a score lands in a category's uncertain band, or a category has no local detector at that checkpoint, the guard can ask a slower, stronger model: the deep check.
+
+Without one, uncertain findings are decided by the local score, and categories with no detector are recorded as `not_evaluated` (never as clean). `avaliar stats` shows how often that happened.
+
+```yaml
+judge:
+  provider: local        # local, jev, anthropic, openai, gemini, groq, openrouter, avaliar, none
+  timeout_ms: 60000      # how long the deep check may take
+  within_budget: false   # true: fit inside the checkpoint's budget_ms instead
+```
+
+One deep-check call covers every unsettled category of a message, and only messages the local tiers could not settle are sent. The deep check gets its own wait (`timeout_ms`) on top of the checkpoint's `budget_ms`; `within_budget: true` keeps it inside the budget instead.
+
+## The options
+
+| `provider` | What runs | Needs | Leaves your machine |
+|---|---|---|---|
+| `local` | Clef-Flash 9B (a decision model) in a pinned `llama-server` on 127.0.0.1 | `avaliar judge install`, then `avaliar judge start`; about 7 GB of memory | Nothing |
+| `jev` | TypeSafe's hosted decision model | `TYPESAFE_API_KEY` | The text being judged, to TypeSafe |
+| `anthropic` | `claude-haiku-5-5` by default | `ANTHROPIC_API_KEY` | The text, to Anthropic |
+| `openai` | `gpt-4o-mini` by default; `base_url` reaches any OpenAI-compatible server, a local one included | `OPENAI_API_KEY` | The text, to that server |
+| `gemini` | `gemini-3.5-flash-lite` by default | `GEMINI_API_KEY` | The text, to Google |
+| `groq` | `openai/gpt-oss-120b` by default | `GROQ_API_KEY` | The text, to Groq |
+| `openrouter` | `anthropic/claude-haiku-5.5` by default | `OPENROUTER_API_KEY` | The text, to OpenRouter |
+| `avaliar` | Avaliar's tuned deep check (Pro plan) | `AVALIAR_API_KEY` | The text, to Avaliar Cloud |
+
+`model`, `api_key_env` and `base_url` override the defaults. The first deep check logs one line saying which deep check is on and where text goes. See [What leaves your machine](/sdk/network) for every request the SDK can make.
+
+`local` and `jev` are decision models: they take the checked text as data and a yes/no question per category, and return a calibrated probability for each, with nothing to parse. The LLM APIs get a prompt and return JSON.
+
+## The local deep check
+
+```bash
+avaliar judge install            # a pinned llama.cpp server (sha256 checked) and Clef-Flash (5.4 GB)
+avaliar judge install --server-only
+avaliar judge start              # 127.0.0.1:8080, in the background (--port, --threads)
+avaliar judge status             # what is installed and whether it answers
+avaliar judge stop
+```
+
+`avaliar doctor --measure` tells you whether this machine can run it, and how long a check takes. Expect 15 to 45 seconds per deep check on a laptop CPU, much less on a GPU.
+
+<Warning>
+  Clef-Flash's published scores are for fact checking, and its false block rate on agent safety tasks is high. Measure it on your own traffic before relying on it to block.
+</Warning>
+
+## Choosing
+
+- **Nothing may leave the machine:** `local`.
+- **Fast, and a hosted model is fine:** one of the LLM APIs. A deep check takes about a second and costs a fraction of a cent per unsettled message.
+- **One place for your team's evidence too:** `avaliar`, with [Avaliar Cloud](/sdk/cloud).
+
+`avaliar init --how both --provider anthropic` writes a policy where local models check every message and the API sees only the unsure few. `avaliar doctor --online` sends one fixed test sentence to an API deep check to confirm the key works.
+
+## When the deep check fails
+
+A timeout, an error or an unreadable answer never counts as clean: the categories it was asked about keep their local score, or are recorded as `not_evaluated` with reason `judge_unavailable` (or `budget` when there was no time left). After `breaker_failures` failures in a row the guard stops calling it for `breaker_cooldown_s` seconds, so an outage does not slow every check.

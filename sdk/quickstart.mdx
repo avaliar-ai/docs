@@ -1,0 +1,121 @@
+---
+title: "SDK quickstart"
+description: "Write a policy, guard your first message and read the evidence log, offline, in about five minutes"
+icon: "rocket"
+---
+
+This walks through a first run with no account and no network calls. You need Python 3.11 or newer.
+
+<Steps>
+  <Step title="Install">
+    ```bash
+    pip install "avaliar-python-sdk[local]"
+    ```
+
+    The `[local]` extra adds the local models. Without it the guard runs on rules alone. See [Installation](/sdk/installation) for every extra.
+  </Step>
+
+  <Step title="Write the policy">
+    Pick one of two ways to answer the same two questions (local models, an API, or both, and which API):
+
+    ```bash
+    avaliar setup     # a page on 127.0.0.1 in your browser: choose, try it, write the files
+    avaliar init      # the same questions in the terminal
+    ```
+
+    Both write `avaliar.yaml` next to your code and create `.avaliar/` (the evidence log and a per-install secret, added to `.gitignore`). In CI, pass the answers as flags:
+
+    ```bash
+    avaliar init --how local --no-deep-check --yes
+    avaliar init --how both --provider anthropic --yes
+    ```
+  </Step>
+
+  <Step title="Check the install">
+    ```bash
+    avaliar doctor            # policy, models, deep check, evidence, hardware
+    avaliar doctor --measure  # also time every installed model on this machine
+    ```
+  </Step>
+
+  <Step title="Try a check from the terminal">
+    ```bash
+    avaliar scan "My card is 4539 1488 0343 6467"
+    ```
+
+    `scan` runs one check and prints every finding, the decision and the redacted text. Add `--checkpoint output` to check a reply instead, or `--json` for machine output.
+  </Step>
+
+  <Step title="Guard your app">
+    ```python
+    from avaliar import Guard
+
+    guard = Guard()                    # reads ./avaliar.yaml
+
+    d = guard.check_input(user_message)
+    if d.blocked:
+        return d.reply                 # the policy's reply text
+    prompt = d.text                    # original, or with [EMAIL_1]-style redactions
+
+    answer = call_your_model(prompt)
+    answer = guard.check_output(answer).text
+    ```
+
+    Send `d.text` to your model, not the original message, so redactions take effect. A check never raises: it returns a [`Decision`](/sdk/guard#the-decision).
+  </Step>
+
+  <Step title="Guard your tools">
+    ```python
+    @guard.tool
+    def send_email(to: str, body: str) -> str: ...
+
+    docs = guard.check_tool_result("search", search(query)).text
+    ```
+
+    `@guard.tool` checks every call before the tool runs and its result before the model reads it. `check_tool_result` does the same for content your app fetches itself, which is where indirect prompt injection arrives.
+  </Step>
+
+  <Step title="See what happened">
+    ```bash
+    avaliar logs            # every decision, newest last
+    avaliar stats           # counts by action, category and tier
+    avaliar verify          # check the evidence hash chains
+    ```
+  </Step>
+</Steps>
+
+## Add a deep check (optional)
+
+Rules and local models settle most messages in milliseconds. For the few they are unsure about, and for categories no local model covers (harmful content, your own rules), add a deep check. To keep everything on this machine:
+
+```bash
+avaliar judge install     # a pinned llama.cpp server and Clef-Flash (5.4 GB, sha256 checked)
+avaliar judge start       # runs on 127.0.0.1:8080 in the background
+```
+
+Or use an API you already have a key for. See [Deep check](/sdk/deep-check).
+
+## Attack your own app (optional)
+
+```bash
+avaliar redteam --target myapp:reply
+```
+
+This sends the bundled attack pack, and harmless look-alikes, through your real app. See [Red-team](/sdk/redteam).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Checkpoints" icon="location-crosshairs" href="/sdk/checkpoints/input">
+    Where to call each of the five checks.
+  </Card>
+  <Card title="Policy file" icon="file-code" href="/sdk/policy">
+    Change what blocks, redacts, warns or asks for approval.
+  </Card>
+  <Card title="Framework integrations" icon="plug" href="/sdk/integrations">
+    One line for OpenAI Agents, LangChain and MCP.
+  </Card>
+  <Card title="Connect to Avaliar Cloud" icon="cloud" href="/sdk/cloud">
+    See guard traces on your team's dashboard.
+  </Card>
+</CardGroup>

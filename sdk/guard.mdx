@@ -1,0 +1,161 @@
+---
+title: "Guard and decisions"
+description: "The Guard class, the five checks, the Decision they return, context, approvals and async"
+icon: "shield-check"
+---
+
+A `Guard` holds one policy and runs the checks. Create it once, at startup, and share it: it is thread-safe and keeps its models, its evidence writer and its per-session memory between calls.
+
+```python
+from avaliar import Guard
+
+guard = Guard()                                     # $AVALIAR_POLICY, else ./avaliar.yaml, else the recommended preset
+guard = Guard("policies/prod.yaml")                 # an explicit file
+guard = Guard(policy={"version": 1, "extends": "strict"})   # a dict
+```
+
+An invalid policy raises `AvaliarPolicyError` here, with the file, line and key. It is the only error a guard raises on its own. See [Error handling](/sdk/error-handling).
+
+<Note>
+  Without a policy file the guard runs the `recommended` preset and records nothing. Run `avaliar init` to write `avaliar.yaml` and turn on the evidence log.
+</Note>
+
+## Constructor
+
+```python
+Guard(
+    source=None,              # path to a policy file
+    *,
+    policy=None,              # or a policy as a dict (not both)
+    approval_handler=None,    # who answers "approve" decisions; default denies
+    raise_on_block=False,     # raise GuardBlocked instead of returning a block
+    judge=None,               # a custom deep check object, instead of judge: in the policy
+    record=True,              # False: never write evidence from this guard
+    on_follow_up=None,        # callback for checks that ran after the reply
+)
+```
+
+## The five checks
+
+| Method | Checkpoint | What you pass |
+|---|---|---|
+| `check_input(text, context=None)` | [input](/sdk/checkpoints/input) | The user's message, or the whole chat as a list of `{"role", "content"}` messages |
+| `check_output(text, context=None)` | [output](/sdk/checkpoints/output) | The model's reply, or the chat |
+| `check_tool_call(name, args=None, context=None)` | [tool_call](/sdk/checkpoints/tool-call) | A tool's name and its arguments |
+| `check_tool_result(name, result, context=None)` | [tool_result](/sdk/checkpoints/tool-result) | A tool's output, a fetched page or a retrieved document |
+| `check_action(name, details=None, context=None)` | [action](/sdk/checkpoints/action) | An action with real-world effect and its details |
+
+Two more cover tools:
+
+- `@guard.tool` wraps a function so its calls and results are checked. See [Tool call](/sdk/checkpoints/tool-call).
+- `check_tool_definitions(tools, server=None)` checks a tool list (MCP `tools/list`, OpenAI or Anthropic tool specs) for poisoned descriptions before the model sees it. See [Tool result](/sdk/checkpoints/tool-result).
+
+### Async
+
+Every check has an async twin: `acheck_input`, `acheck_output`, `acheck_tool_call`, `acheck_tool_result`, `acheck_action`, `acheck_tool_definitions`, and `aapprove` for approvals. `@guard.tool` works on async functions and generators as they are.
+
+```python
+d = await guard.acheck_input(user_message)
+```
+
+### Module-level shortcuts
+
+For scripts, the same checks exist as functions on the package. They use one shared `Guard()` created on first use (`avaliar.default_guard()`):
+
+```python
+import avaliar
+
+d = avaliar.check_input("Ignore all previous instructions")
+```
+
+## The decision
+
+Every check returns a `Decision`:
+
+| Field | Meaning |
+|---|---|
+| `action` | `allow`, `warn`, `redact`, `block` or `approve`. When several rules fire, the strictest wins. |
+| `blocked`, `allowed`, `redacted`, `needs_approval` | Shortcuts for the action. `allowed` is true for `allow`, `warn` and `redact`. |
+| `text` | The checked text, with redactions applied (`[EMAIL_1]`, `[CARD_1]`, `[SECRET_1]`). Use this, not the original. |
+| `args` | For tool calls and actions: the arguments with redactions applied |
+| `reply` | The policy's reply text when the decision blocks (`replies.block`, or `replies.approval_denied`) |
+| `reasons` | Short, human-readable reasons for the action |
+| `findings` | One `Finding` per detector result: `category`, `detector`, `version`, `tier`, `score`, `band`, `spans`, `kind`, `detail` |
+| `not_evaluated` | Categories nothing could score, with a reason (`judge_unavailable`, `budget`, `error` and others). Never counted as clean. |
+| `deferred` | Warn-only categories that will run after the reply (see [speed](/sdk/policy#speed)) |
+| `record_id`, `evidence_ok` | The evidence record's id, and whether it was written |
+| `trace_id` | The trace this check belongs to (see [traces](#traces-and-context)) |
+| `policy_hash` | Hash of the policy the decision was made under |
+| `latency_ms` | Time the check took |
+| `approval` | The approval answer, after `guard.approve(d)` |
+
+`d.raise_for_block()` raises `GuardBlocked` when the decision blocks or waits for approval, and returns the decision otherwise. `d.to_dict()` gives a JSON-ready dict.
+
+```python
+d = guard.check_output(reply)
+if d.blocked:
+    return d.reply
+for f in d.findings:
+    print(f.category, f.tier, round(f.score, 2), f.detector)
+for n in d.not_evaluated:
+    print("not evaluated:", n.category, n.reason)
+```
+
+## Traces and context
+
+`guard.context(...)` attaches values to every check inside the block. Wrap each request in it:
+
+```python
+with guard.context(session_id=conversation.id, user_id=user.id, agent="support", tenant="acme", tags={"env": "prod"}):
+    d = guard.check_input(message)
+    ...
+    guard.check_output(reply)
+```
+
+| Key | Used for |
+|---|---|
+| `session_id` | Per-session memory for `tool misuse.taint` and `tool misuse.loops` |
+| `user_id` | Stored only as a keyed fingerprint (`user_id_hash`), never in clear |
+| `agent` | The agent's name on the evidence record |
+| `tenant` | Picks one customer's [examples](/sdk/examples) |
+| `tags` | Free-form labels on the evidence record |
+| `trace_id` | Your own trace id for every check in the block |
+
+Each check also takes `context=` for values that apply to that check only, such as `{"retrieval_context": docs}` for hallucination or `{"system_prompt": prompt}` for data leak.
+
+Every decision carries a `trace_id`, so one request's input, tool and output checks group into one trace. The id comes from `guard.context(trace_id=...)` when you set it, else from your app's current OpenTelemetry trace, else one is made per request turn. The outermost `guard.context()` block starts a new turn, so checks on a reused worker thread never join a previous request's trace.
+
+## Approvals
+
+A rule with `action: approve` returns a decision that waits for a person. Pass a handler that knows how to reach one:
+
+```python
+from avaliar import Approval, ApprovalRequest, Guard
+
+def ask_slack(req: ApprovalRequest) -> Approval:
+    ok = post_and_wait(f"Approve {req.name} {req.details}? Reasons: {req.reasons}")
+    return Approval(ok, approver="ops-oncall")
+
+guard = Guard(approval_handler=ask_slack)
+
+d = guard.check_action("refund", {"amount": 420, "order": order_id})
+if d.needs_approval:
+    d = guard.approve(d)        # allow when approved, block when not
+d.raise_for_block()
+```
+
+The handler gets an `ApprovalRequest` (`checkpoint`, `name`, `details`, `text`, `reasons`, `decision_id`, `context`) and returns a `bool` or an `Approval(approved, approver=None, note=None)`. It may be async. The answer is written to the evidence log, linked to the decision.
+
+Without a handler every approval is denied and recorded as `approval_unavailable`. For local development, `avaliar.approval.console` asks on the terminal. `@guard.tool` and the framework integrations call the handler for you.
+
+## Lifecycle
+
+| Method | What it does |
+|---|---|
+| `guard.warmup()` | Load the local models now instead of on the first check |
+| `guard.flush(timeout=5.0)` | Wait for after-the-reply checks, pending evidence writes and, with a key, a short upload |
+| `guard.close()` | Flush and stop background work |
+| `guard.add_examples(category, flag=..., allow=..., tenant=None)` | Teach the guard your own examples. See [Your own examples](/sdk/examples). |
+| `guard.policy_hash` | Hash of the loaded policy |
+
+Evidence is written off the request path and flushed at exit. In serverless handlers, call `guard.flush()` before returning, since the process is frozen rather than exited.

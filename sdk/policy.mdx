@@ -1,0 +1,185 @@
+---
+title: "Policy file"
+description: "avaliar.yaml: presets, rules, actions, budgets, the deep check, evidence and speed"
+icon: "file-code"
+---
+
+What to check, and what to do about it, lives in one file your team owns: `avaliar.yaml`. Every decision records the hash of the policy it was made under, so you can always show which rules were in force.
+
+`Guard()` looks for the policy in this order: the path you pass, `$AVALIAR_POLICY`, `./avaliar.yaml` (or `.yml`), and otherwise the built-in `recommended` preset with evidence off. `avaliar init` and `avaliar setup` write a starting file for you.
+
+## A first policy
+
+```yaml
+version: 1
+extends: recommended          # or strict, minimal, or a path to another policy
+
+judge:
+  provider: local             # local | jev | anthropic | openai | gemini | groq | openrouter | avaliar | none
+
+input:
+  budget_ms: 300
+  on_error: fail_open
+  rules:
+    prompt injection: { action: block, threshold: 0.8 }
+    sensitive data:   { action: redact }
+
+tool_call:
+  rules:
+    tools:
+      send_email: { action: approve }
+      run_sql:    { deny_args: { query: ["(?i)\\bdrop\\b"] } }
+```
+
+Unknown keys are errors with line numbers. Check a file before you ship it:
+
+```bash
+avaliar policy check            # validate ./avaliar.yaml
+avaliar policy show             # the resolved policy (presets merged in) and its hash
+```
+
+The JSON Schema is `schema/policy.v1.json` in the SDK repository, for editor completion and CI.
+
+## Presets
+
+| Preset | What it does |
+|---|---|
+| `recommended` | Blocks prompt injection and hidden text on input and tool results, redacts personal data, blocks leaked secrets, toxic replies and data leaks, asks for approval on dangerous tool arguments. Fails open. Fast path on (`speed`). |
+| `strict` | Lower thresholds, more categories blocked, every action needs approval, evidence is required, every checkpoint fails closed, every local model runs on every check. |
+| `minimal` | Blocks clear prompt injection and leaked secrets, asks before dangerous tool arguments. Records no text. |
+
+`extends` merges per key: fields of `judge`, `evidence`, `replies` and `speed` override one by one; a rule replaces the preset's rule of the same name at the same checkpoint; `null` removes it; tool and action rules merge per name; `examples` merge per category.
+
+```yaml
+version: 1
+extends: recommended
+output:
+  rules:
+    harmful content: null        # drop the preset's rule
+    toxicity: { action: warn }   # replace it
+```
+
+## Actions
+
+| Action | Effect |
+|---|---|
+| `allow` | Nothing happens; the finding is recorded |
+| `warn` | The decision is allowed and the finding is recorded as a warning |
+| `redact` | Matched spans are replaced with numbered placeholders (`[EMAIL_1]`, `[CARD_1]`, `[SECRET_1]`) in `d.text` and `d.args` |
+| `block` | `d.blocked` is true and `d.reply` holds the policy's reply |
+| `approve` | The decision waits for a person (`guard.approve(d)`); denied without an approval handler |
+
+When several rules fire, the strictest wins.
+
+## Top-level keys
+
+`version` (required, `1`), `extends`, `app`, `judge`, `evidence`, `speed`, one section per checkpoint (`input`, `output`, `tool_call`, `tool_result`, `action`), `replies`, `detectors`, `examples`.
+
+`app` names the app on every evidence record (else `$AVALIAR_APP`).
+
+## Checkpoints
+
+One section per checkpoint.
+
+| Key | Type | Default |
+|---|---|---|
+| `budget_ms` | int | input 300, output 1500, tool_call 300, tool_result 1000, action 300 |
+| `on_error` | `fail_open` or `fail_closed` | `fail_open` |
+| `scan.roles` | list of `system`, `user`, `assistant`, `tool`, `developer` | input: `user`, output: `assistant` |
+| `scan.last_only` | bool | `true` |
+| `rules` | map of category to rule, plus `tools` or `actions` | `{}` |
+
+`on_error` decides what happens when a category could not be evaluated (a model failed, the deep check timed out, the budget ran out): `fail_open` decides from what could be scored and records the gap as `not_evaluated`; `fail_closed` blocks when the category's rule would block or ask for approval. `scan` picks which chat messages are read when you pass a list of messages.
+
+### Category rules
+
+A rule under `<checkpoint>.rules.<category>`. Category names may use spaces or underscores (`prompt injection` or `prompt_injection`), and a part of a category is written after a dot (`sensitive data.secrets`).
+
+| Key | Type | Applies to |
+|---|---|---|
+| `action` | `allow`, `warn`, `redact`, `block`, `approve` | every rule (required) |
+| `threshold` | float, 0 to 1 | every rule; defaults per category |
+| `topics` | list | `off topic` (required) |
+| `allowed` | list of language codes | `language` (required) |
+| `terms`, `patterns` | lists | `blocklist` (one of them required) |
+| `criteria` | string | `custom.<name>` (required) |
+| `allow_domains`, `canaries` | lists | `data leak` |
+| `allow_hosts`, `trusted_tools`, `max_calls`, `max_repeats`, `window_s` | lists and numbers | `tool misuse` |
+
+A rule on a category acts on its highest-scoring part; a rule on a part acts on that part alone, so secrets can block while personal data is only redacted. Options can sit on the category or on any of its parts. See [Detectors and categories](/sdk/detection) for what each category catches.
+
+### Tool and action rules
+
+Under `tool_call.rules.tools` and `action.rules.actions`, keyed by exact name or glob. The exact name wins, then the longest glob.
+
+| Key | Type | Effect |
+|---|---|---|
+| `action` | `allow`, `warn`, `block`, `approve` | Applies when no argument rule blocks |
+| `deny_args` | map of argument to list of regexes | Any match blocks |
+| `allow_args` | map of argument to list of regexes | An argument that is missing or matches nothing blocks |
+
+The `recommended` and `strict` presets allow every tool (`"*": {action: allow}`); `strict` also asks for approval on every action. Name the tools and actions that need a person or must never run.
+
+## `judge`
+
+The deep check for what rules and local models could not settle. See [Deep check](/sdk/deep-check).
+
+| Key | Type | Default |
+|---|---|---|
+| `provider` | `local`, `jev`, `anthropic`, `openai`, `gemini`, `groq`, `openrouter`, `avaliar`, `none` | `none` |
+| `model` | string | the provider's default |
+| `api_key_env` | string | the provider's usual variable |
+| `base_url` | string | the provider's address |
+| `timeout_ms` | int | `5000` |
+| `within_budget` | bool | `false` |
+| `min_budget_ms` | int | `200` |
+| `breaker_failures` | int | `5` |
+| `breaker_cooldown_s` | float | `30.0` |
+
+## `evidence`
+
+The local evidence log. Paths are relative to the policy file (or `$AVALIAR_HOME`). See [Evidence and verify](/sdk/evidence).
+
+| Key | Type | Default |
+|---|---|---|
+| `enabled` | bool | `true` |
+| `path` | string | `.avaliar/evidence` |
+| `capture` | `none`, `redacted`, `full` | `redacted` |
+| `required` | bool | `false` |
+| `rotate_mb` | int | `100` |
+
+## `speed`
+
+How hard the guard works on the request path.
+
+| Key | Values | Default | Effect |
+|---|---|---|---|
+| `deep_models` | `when_unsure`, `always` | `when_unsure` | `when_unsure` runs the bigger local models (GLiNER, Wolf, TinyLettuce) only for categories the quick models could not settle, so clean messages stay fast |
+| `warn_after_reply` | bool | `false` | Categories whose rules at a checkpoint only `warn` run after the decision is returned, on a background thread, and are written as `follow_up` records |
+
+The `recommended` preset turns both fast paths on (`when_unsure`, `warn_after_reply: true`); `strict` runs every model inline. `Decision.deferred` lists the categories that will run later, `Guard(on_follow_up=...)` receives their results, and `guard.flush()` waits for them. Measured with every model installed, a clean 20-word message takes about 2.5 ms with the fast path instead of 11 ms.
+
+## `replies`
+
+| Key | Default |
+|---|---|
+| `block` | `Sorry, I can't help with that.` |
+| `approval_denied` | `This action was not approved.` |
+
+The text returned in `Decision.reply`.
+
+## `detectors`
+
+Per-detector switches and uncertainty bands, under `detectors.<detector name>` (names come from `avaliar detectors`):
+
+| Key | Type | Effect |
+|---|---|---|
+| `enabled` | bool | Turn one detector off |
+| `allow_below` | float | Scores below this are settled as clean |
+| `block_at` | float | Scores at or above this are settled as flagged |
+
+Scores between `allow_below` and `block_at` are the uncertain band that goes to the deep check.
+
+## `examples`
+
+Your own `flag` and `allow` examples per category, optionally per tenant. See [Your own examples](/sdk/examples).

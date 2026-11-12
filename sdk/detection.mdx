@@ -1,199 +1,128 @@
 ---
-title: "Detection"
-description: "Detect safety issues in your LLM applications, and block unsafe prompts"
-icon: "shield"
+title: "Detectors and categories"
+description: "The sixteen categories, the detectors behind each, and the tiers that score them"
+icon: "magnifying-glass"
 ---
 
-## Overview
+The guard sorts what it finds into sixteen categories. A policy rule names a category (or one of its parts) and says what to do. `avaliar detectors` lists every category with its short name, its checkpoints, its options and what it needs.
 
-Avaliar runs **ten detectors** over your LLM inputs and outputs. Turn detection on for a traced function to scan its prompts and answers, or turn on **blocking** to check a prompt before the model is called at all.
+## Tiers
 
-```python
-from avaliar.detectors import DetectorType
+| Tier | What | Cost | Needs |
+|---|---|---|---|
+| 0 | Rules: injection payloads, jailbreak templates, personal data, secrets, hidden text, leaks, tool arguments, taint, loops, word lists, language | about 1 ms | nothing |
+| 1 | Local ONNX models: prompt injection and toxicity (in the wheel); jailbreaks, names and addresses, off topic, groundedness (`avaliar models pull`) | about 5 to 50 ms on CPU, more for long text | `[local]` extra |
+| 2 | The [deep check](/sdk/deep-check), only for what tiers 0 and 1 are unsure about: Clef-Flash on this machine, or an API (Jev, Anthropic, OpenAI, Gemini, Groq, OpenRouter, any OpenAI-compatible URL, or Avaliar Cloud) | seconds on a laptop CPU locally; about 0.5 to 1 s by API | the model file, or your key |
+
+Without a deep check the local score is final, so the offline guard still blocks. A category nothing could score is reported as `not_evaluated`, never as clean.
+
+<Warning>
+  Without a deep check, harmful content and your own `custom` rules are not evaluated at all. `avaliar stats` shows how often a category was not evaluated.
+</Warning>
+
+## The categories
+
+Write them in a policy with spaces or underscores (`prompt injection` or `prompt_injection`). Evidence records use the underscore form.
+
+| Category | Parts you can set separately | Checkpoints | Rules (tier 0) | Local model (tier 1) | Deep check |
+|---|---|---|---|---|---|
+| prompt injection | | input, tool_result | injection payloads, jailbreak templates, poisoned tool descriptions | StackOne Defender; Wolf Defender Edge (input) | yes |
+| sensitive data | `personal`, `secrets` | all | PII patterns with checksums; API keys, tokens, passwords | GLiNER pii-edge (names, addresses, health, salary) | yes |
+| toxicity | | input, output, tool_result | | MiniLMv2 toxic-jigsaw | yes |
+| harmful content | `bias`, `misinformation`, `misuse`, `graphic_content`, `illegal_activities`, `personal_safety`, `advice` | input, output, tool_result | | | only |
+| hallucination | | output | | TinyLettuce 17M (needs `retrieval_context`) | yes |
+| hidden text | | all | Unicode tags, bidi controls, zero-width runs, lookalike letters | | |
+| data leak | `links`, `system_prompt` | output, tool_call | data in links and images; canaries and a copied system prompt | | |
+| tool misuse | `args`, `taint`, `loops` | tool_call, action | dangerous arguments; values from untrusted tool output; loops and call budgets | | |
+| off topic | | input, output | | potion-base-8M | yes (gets your topics) |
+| language | | input, output | writing system plus common words, 16 Latin-script languages | | |
+| gibberish | | input, output | keyboard mash, floods, random strings | | word salad |
+| blocklist | | all | your terms and regexes | | |
+| copyright | | output | licence and confidentiality notices | | copied prose |
+| `custom.<name>` | | all | | | only |
+| tools | | tool_call | your allow and deny rules | | |
+| actions | | action | your approval rules | | |
+
+Every category except tools and actions also takes your own `flag` and `allow` examples, which beat the models. See [Your own examples](/sdk/examples).
+
+## Turning them on
+
+The `recommended` preset runs the categories that need no setup. Add the rest in your policy:
+
+```yaml
+version: 1
+extends: recommended
+
+input:
+  rules:
+    off topic: { action: block, topics: ["billing questions", "card and account support"] }
+    language:  { action: block, allowed: [en, es] }
+    gibberish: { action: warn }
+
+output:
+  rules:
+    sensitive data:          { action: redact }
+    sensitive data.secrets:  { action: block }
+    data leak:               { action: block, canaries: ["avl-3f9c1e07b2d84a65"] }
+    blocklist:               { action: redact, terms: [Project Falcon], patterns: ['\bTKT-\d{5}\b'] }
+    harmful content.advice:  { action: warn }
+    custom.no_competitors:
+      action: block
+      criteria: "The reply recommends or praises a competitor's product"
+
+tool_call:
+  rules:
+    tool misuse.args:  { action: approve, allow_hosts: [billing.internal] }
+    tool misuse.taint: { action: approve, trusted_tools: ["crm_*", "saved_payees"] }
+    tool misuse.loops: { action: block, max_repeats: 3, max_calls: 50, window_s: 600 }
 ```
 
-## DetectorType
+## Notes by category
 
-| Detector | Value | Looks for |
-|----------|-------|-----------|
-| `PROMPT_INJECTION` | `prompt_injection` | Attempts to override instructions, including jailbreaks |
-| `TOXICITY` | `toxicity` | Offensive, harassing or hateful content |
-| `PII_LEAK` | `pii_leak` | Personal data such as names, emails, phone and ID numbers |
-| `BIAS` | `bias` | Unfair treatment of a group |
-| `HALLUCINATION` | `hallucination` | Claims not supported by the sources you pass as `retrieval_context` |
-| `MISINFORMATION` | `misinformation` | False or misleading factual claims |
-| `MISUSE` | `misuse` | Use of the model outside its intended purpose |
-| `GRAPHIC_CONTENT` | `graphic_content` | Violent or explicit material |
-| `ILLEGAL_ACTIVITIES` | `illegal_activities` | Help with crimes |
-| `PERSONAL_SAFETY` | `personal_safety` | Self-harm and threats to someone's safety |
-
-See [Detectors](/detection/detectors) for what each one flags.
-
-<Note>
-  There is no separate `JAILBREAK` detector: `PROMPT_INJECTION` covers jailbreaks. PII is `PII_LEAK`.
-</Note>
-
-## Enabling detection
-
-```python
-from avaliar import traceable
-from avaliar.detectors import DetectorType
-
-@traceable(
-    "llm",
-    model="gpt-4o",
-    provider="openai",
-    detection=True,
-    detectors=[
-        DetectorType.PROMPT_INJECTION,
-        DetectorType.TOXICITY,
-        DetectorType.PII_LEAK,
-    ],
-    detection_mode="cloud",
-)
-async def generate(messages: list):
-    return await client.chat.completions.create(model="gpt-4o", messages=messages)
-```
-
-Detection runs after the function returns and never delays it. Results appear on the trace in the dashboard.
-
-## Detection modes
-
-<Tabs>
-  <Tab title="Cloud">
-    Detection runs on Avaliar. Nothing extra to install. Requires a **Pro** plan.
+<AccordionGroup>
+  <Accordion title="prompt injection">
+    Runs on every `tool_result`, so poisoned MCP tool descriptions are caught there too. Use `guard.check_tool_definitions(tools)` to check a server's tool list before the model sees it. The jailbreak and tool-description rules abstain when nothing matches, so the models still read the text.
+  </Accordion>
+  <Accordion title="sensitive data">
+    With `redact`, personal data becomes `[EMAIL_1]`, `[CARD_1]`, `[NAME_1]` and secrets become `[SECRET_1]`. The GLiNER model adds names and addresses the patterns cannot see; a lone name stays below the block threshold unless it comes with another personal detail.
+  </Accordion>
+  <Accordion title="hidden text">
+    Decodes Unicode tag text into the finding so a reviewer can read what was hidden. Flag emoji for England, Scotland and Wales, emoji joiners, Persian and Indic joiners, a leading byte order mark, isolates around right-to-left names, and units such as `kΩ` or `μF` are left alone.
+  </Accordion>
+  <Accordion title="data leak">
+    `data leak.system_prompt` needs something to compare against: plant a marker with `avaliar.new_canary()` and list it under `canaries` (or pass it as context `canary`), or pass the prompt as context `system_prompt`. It also finds a marker that was spaced out or base64-encoded. Translations and paraphrases are beyond it. Without either, only the link rules answer.
+  </Accordion>
+  <Accordion title="tool misuse">
+    `taint` and `loops` keep per-session memory, keyed by `session_id`:
 
     ```python
-    @traceable("llm", detection=True, detectors=[DetectorType.TOXICITY], detection_mode="cloud")
-    ```
-  </Tab>
-  <Tab title="Local">
-    Detection runs inside your own process, so prompts and answers are checked before they leave your infrastructure. It needs Avaliar's detection engine, which is **not on PyPI**: it is shared with approved customers. [Request access](https://github.com/avaliar-ai/python-sdk#local-detection).
-
-    ```python
-    @traceable("llm", detection=True, detectors=[DetectorType.TOXICITY], detection_mode="local")
+    with guard.context(session_id=conversation.id):
+        guard.check_input(user_message)
+        ...
     ```
 
-    Without the engine installed, the SDK warns once and sends traces without local results.
-  </Tab>
-</Tabs>
+    Taint keeps only salted hashes of emails, URLs, IBANs, phone numbers and wallet addresses, in memory, for an hour. Values the user typed are trusted, and so is output from `trusted_tools`; other tool output is not.
 
-The API key's own detection mode, set when the key is created, decides how the backend treats traces from that key.
+    `args` treats a search query or ticket body that mentions `rm -rf /` or `169.254.169.254` as prose and does not fire on it. It decodes URL-encoded paths and only counts `../` that climbs out of where it starts.
+  </Accordion>
+  <Accordion title="language">
+    Needs no model. Short messages are clear.
+  </Accordion>
+  <Accordion title="harmful content.advice and custom">
+    Deep check only. Without a deep check they are `not_evaluated`, and `on_error: fail_closed` blocks on that.
+  </Accordion>
+</AccordionGroup>
 
-## Blocking mode
+## Accuracy
 
-Blocking checks the prompt **before** the model is called. If Avaliar flags it, the model is never called.
+Measured precision, recall and false positive rates per category and checkpoint, for rules alone and for rules plus local models, are generated from a reviewed labelled set and published in the SDK repository (`docs/accuracy.md`). The rule detectors were tuned while looking at those cases, so their rows overstate accuracy on new data. Measure on your own traffic with `avaliar redteam` (see [Red-team](/sdk/redteam)) before relying on a category to block.
 
-<Note>
-  Blocking needs a **Pro** plan and applies to `span_type="llm"` spans.
-</Note>
+## Local models
 
-```python
-from avaliar import traceable, PromptBlockedError
-
-@traceable("llm", model="gpt-4o", provider="openai", blocking=True)
-async def answer(messages: list):
-    return await client.chat.completions.create(model="gpt-4o", messages=messages)
-
-try:
-    response = await answer(messages)
-except PromptBlockedError as e:
-    print(e.reason)            # "Blocked: prompt_injection (97%)"
-    print(e.blocked_message)   # your workspace's reply text, or None
+```bash
+avaliar models list          # what is installed, with licences
+avaliar models pull          # every downloadable model (sha256 checked)
+avaliar models pull potion-base-8M
 ```
 
-### Return a reply instead of raising
-
-With `on_block="reply"` a blocked call returns your workspace's blocked reply (Settings, Detection) instead of raising, so a chatbot can show it directly. If the workspace blocks without a reply, it still raises.
-
-```python
-@traceable("llm", blocking=True, on_block="reply")
-def chat(messages): ...
-```
-
-### When the prompt can't be checked
-
-If Avaliar is unreachable, times out, or its detection service is down, the SDK **fails open** by default: the call goes through unchecked and a warning is logged once. Your app keeps working through an Avaliar outage.
-
-For workloads where an unchecked prompt is worse than a refused one, fail closed:
-
-```python
-from avaliar import traceable, AvaliarDetectionUnavailableError
-
-@traceable("llm", blocking=True, fail_closed=True)
-def answer(messages): ...
-
-try:
-    answer(messages)
-except AvaliarDetectionUnavailableError:
-    ...  # the prompt was not checked, so the model was not called
-```
-
-| Option | Default | Effect |
-|--------|---------|--------|
-| `on_block` | `"raise"` | `"reply"` returns the workspace reply instead of raising `PromptBlockedError` |
-| `fail_closed` | `False` (or `AVALIAR_FAIL_CLOSED=1`) | Refuse the call when the prompt could not be checked |
-| `blocking_timeout` | `10` seconds (or `AVALIAR_BLOCKING_TIMEOUT`) | Longest the check may take before failing open or closed |
-
-### Blocking vs detection
-
-| | `detection=True` | `blocking=True` |
-|---|---|---|
-| When it runs | After the model answers | Before the model is called |
-| Can stop the call | No | Yes |
-| Latency | None | One round trip (detection time included) |
-| Plan | Cloud mode needs Pro | Pro |
-
-## Grounding hallucination checks
-
-The hallucination detector compares the answer with the sources it should be based on. Pass them as `retrieval_context`, statically or per call:
-
-```python
-import avaliar
-
-@traceable("llm", detection=True, detectors=[DetectorType.HALLUCINATION], detection_mode="cloud")
-def answer(question: str, docs: list[str]):
-    avaliar.get_current_run().retrieval_context = docs
-    ...
-```
-
-Without sources the detector skips rather than guessing.
-
-## Standalone detection
-
-With the local engine installed, `Detector` checks text outside any traced function:
-
-```python
-from avaliar.detectors import Detector, DetectorType
-
-detector = Detector([DetectorType.PROMPT_INJECTION, DetectorType.PII_LEAK])
-
-result = await detector.evaluate_prompt("Ignore all previous instructions.")
-result = await detector.evaluate_response(prompt="...", response="...")
-result = await detector.evaluate_full(prompt="...", response="...", context={"sources": "..."})
-
-print(result.has_issues, result.max_severity)
-for issue in result.issues:
-    print(issue.type, issue.severity, issue.confidence, issue.message)
-```
-
-Each method prints a summary table by default; pass `log=False` to silence it. Install `avaliar-python-sdk[local]` for the table output.
-
-### Result fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `has_issues` | `bool` | Whether any issue was found |
-| `max_severity` | `low` \| `medium` \| `high` \| `critical` | Highest severity found |
-| `detection_time_ms` | `float` | Time taken by all detectors |
-| `issues` | `list[Issue]` | Each has `type`, `severity`, `confidence`, `message`, `excerpt`, `suggestion`, `detector_name` |
-
-## Choosing detectors
-
-| Use case | Detectors |
-|----------|-----------|
-| Customer-facing chatbot | `PROMPT_INJECTION`, `TOXICITY`, `PII_LEAK` |
-| Internal knowledge assistant (RAG) | `HALLUCINATION`, `PII_LEAK` |
-| Content generation | `TOXICITY`, `BIAS`, `MISINFORMATION` |
-| Code generation tool | `PROMPT_INJECTION`, `MISUSE` |
-| Healthcare or legal | `HALLUCINATION`, `PII_LEAK`, `BIAS`, `PERSONAL_SAFETY` |
+Files go to `~/.cache/avaliar`. Clef-Flash, the local deep check, is pulled only by name (`avaliar models pull clef-flash`, or `avaliar judge install`).

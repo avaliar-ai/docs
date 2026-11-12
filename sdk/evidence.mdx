@@ -1,0 +1,78 @@
+---
+title: "Evidence and verify"
+description: "The hash-chained local log of every decision, what it records, and how to check it was not changed"
+icon: "file-shield"
+---
+
+With a policy file, every decision is appended to `.avaliar/evidence/*.jsonl`: one record per decision, linked into a hash chain. `avaliar verify` detects edits, deletions and reordering. The format is open JSON Lines, so any tool can read it.
+
+```bash
+avaliar logs                      # the last 50 records, newest last
+avaliar logs -f --action block    # follow, only blocks
+avaliar stats --since 7d          # counts by action, category and tier
+avaliar verify                    # check every chain
+```
+
+## What a record holds
+
+| Field | Contents |
+|---|---|
+| `id`, `ts`, `type` | A sortable id, the time, and `decision`, `approval`, `follow_up` or `gap` |
+| `chain`, `seq`, `prev`, `hash` | The chain this record belongs to, its position, the previous record's hash and its own |
+| `trace_id` | The trace the check belongs to |
+| `checkpoint`, `name` | Where the check ran, and the tool or action name |
+| `app`, `context` | The app name, and `session_id`, `agent`, `tenant`, `tags`, with `user_id` stored only as `user_id_hash` |
+| `policy` | The policy's hash and path, and the hash of your example set |
+| `input` | A keyed fingerprint of the checked text, its length, and the text at your capture level |
+| `findings` | Category, detector name and version, tier, score and band for each finding |
+| `not_evaluated` | Categories nothing could score, with the reason |
+| `action`, `reasons` | The decision and why |
+| `judge` | The deep check's provider, model, token usage and any error, when one ran |
+| `latency_ms`, `sdk` | How long the check took and the SDK version |
+
+Approvals are their own records, linked to the decision by `decision_id`, with who answered, when and how.
+
+## How much text is kept
+
+`evidence.capture` in the policy:
+
+| Value | What is stored |
+|---|---|
+| `none` | No text at all, only the fingerprint and length |
+| `redacted` (default) | The text with every piece of personal data or secret a detector found replaced, even where a rule only warned. Blocked text is not stored. |
+| `full` | The text as checked |
+
+User ids and inputs are fingerprinted with a per-install secret (`.avaliar/secret`, git-ignored by `avaliar init`), so the same input can be matched across records without storing it.
+
+<Warning>
+  `redacted` replaces what the detectors find. Anything they miss stays as written. Use `none` when no text may be kept.
+</Warning>
+
+## Chains and verification
+
+Each writer process starts its own chain. Every record carries the previous record's hash, starting from a genesis value for the chain. Files rotate at `rotate_mb` (100 MB by default) and stay in the same chain.
+
+`avaliar verify` recomputes every hash and link and reports, per chain:
+
+| Problem | Meaning |
+|---|---|
+| `tampered` | A record's content does not match its hash |
+| `broken_link` | A record's `prev` does not match the record before it |
+| `seq_gap` | Records are missing from the middle of a chain |
+| `out_of_order` | Records were reordered |
+| `unparseable` | A line is not valid JSON |
+| `truncated` | The last line was cut off (a crash mid-write); reported but not a failure |
+
+It exits 0 when every chain verifies and 1 otherwise, so it fits in CI. `--json` gives a machine-readable report.
+
+## Writes never break your app
+
+Writes happen on a background thread with a bounded queue, so a check never waits on disk. A full queue drops records, counts them, and writes a `gap` record when it drains: gaps are visible, never silent. A read-only disk logs a warning and the checks carry on.
+
+To make evidence a hard requirement, set `evidence.required: true`: writes become synchronous, a failed write is recorded on the decision as `not_evaluated` (`evidence_write_failed`), and with `on_error: fail_closed` the check blocks. The `strict` preset does this.
+
+`d.evidence_ok` tells you whether a decision's record was written. Call `guard.flush()` before a short-lived process exits.
+
+## Sending evidence to Avaliar Cloud
+
+Set `AVALIAR_API_KEY` and the same records are uploaded from the local files in the background, re-verified on arrival, and shown on your team's dashboard. The local file stays the source of truth. See [Connecting to Avaliar Cloud](/sdk/cloud).

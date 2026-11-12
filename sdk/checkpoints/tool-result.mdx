@@ -1,0 +1,52 @@
+---
+title: "Tool result"
+description: "Check what comes back from a tool, a page or a document before the model reads it"
+icon: "file-import"
+---
+
+## When to call it
+
+Before a tool's output, a fetched page or a retrieved document goes back into the model's context. This is where indirect prompt injection arrives.
+
+```python
+d = guard.check_tool_result("fetch_page", html)
+context = d.reply if d.blocked else d.text
+```
+
+When a result is blocked, give the model the block reply instead of the content. Values first seen in an untrusted result are remembered for the session, so a later tool call that sends them out is flagged (`tool misuse.taint`).
+
+## Tool definitions
+
+`check_tool_definitions(tools)` checks tool descriptions for poisoned instructions once, when you load them (from an MCP server, say). It runs this checkpoint's rules, so prompt injection and hidden text apply:
+
+```python
+d = guard.check_tool_definitions(await session.list_tools(), server="crm")
+if d.blocked:
+    ...  # do not register these tools
+```
+
+It accepts an MCP `ListToolsResult`, MCP tool objects, and OpenAI or Anthropic tool specs. The [MCP integration](/sdk/integrations#mcp-clients) does this for you and leaves poisoned tools out of the listing.
+
+Default time budget: 1000 ms (`tool_result.budget_ms`). A deep check, when configured, may take `judge.timeout_ms` on top unless `judge.within_budget: true`.
+
+## The recommended preset here
+
+| Rule | Action | Threshold |
+|---|---|---|
+| prompt injection | block | 0.7 |
+| hidden text | redact | 0.8 |
+| sensitive data.secrets | redact | category default |
+
+## Categories that can run here
+
+| Category | Default threshold | Deep check | Needs | What it catches |
+|---|---|---|---|---|
+| blocklist | 0.5 | no | base install | Your own banned terms and patterns |
+| custom | 0.7 | yes | a deep check | Your own criteria in plain English (`custom.<name>` with `criteria`) |
+| harmful content | 0.7 | yes | a deep check | Bias, misinformation, misuse, graphic, illegal, personal safety, and personalised medical, legal or financial advice |
+| hidden text | 0.5 | no | base install | Invisible or disguised characters: Unicode tags, bidi controls, zero-width runs, lookalike letters |
+| prompt injection | 0.8 | yes | `[local]` for the models | Attempts to take over or talk the model out of its rules: injected instructions, jailbreaks, poisoned tool descriptions |
+| sensitive data | 0.5 | yes | base install | Personal data and secrets (keys, tokens, passwords); parts `personal` and `secrets` |
+| toxicity | 0.8 | yes | `[local]` for the model | Abuse, harassment, threats |
+
+See [Detectors and categories](/sdk/detection) for the detectors behind each category and [Policy file](/sdk/policy) for every rule option.

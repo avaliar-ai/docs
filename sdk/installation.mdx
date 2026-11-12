@@ -1,12 +1,20 @@
 ---
 title: "Installation"
-description: "Install and configure the Avaliar Python SDK"
+description: "Install the Avaliar Python SDK, an open-source runtime guard for AI apps and agents"
 icon: "download"
 ---
 
+The Avaliar Python SDK is an open-source runtime guard. It runs inside your process and, at every risky point of your app or agent, it does three things:
+
+1. **Checks** the text, tool call or action: rules, local models, and an optional deep check for the uncertain cases.
+2. **Decides** by a policy file your team owns (`avaliar.yaml`).
+3. **Records** every decision in a tamper-evident local log you can verify.
+
+It works fully offline with no account. Without an API key it makes no network calls to Avaliar.
+
 ## Requirements
 
-Python **3.10** or newer.
+Python **3.11** or newer (3.14 is supported).
 
 ## Install
 
@@ -14,78 +22,76 @@ Python **3.10** or newer.
 pip install avaliar-python-sdk
 ```
 
-The base install is small (tracing and blocking only: `pydantic`, `requests`, `orjson`). Optional extras add more:
+The package installs as `avaliar-python-sdk`; you import it as `avaliar` and run it as the `avaliar` command.
+
+The base install gives you the rules (tier 0), the policy file, the evidence log and the CLI. It depends only on `pydantic`, `orjson`, `pyyaml` and `requests`, and `import avaliar` loads none of them until you use them.
+
+## Extras
 
 | Extra | Install | Adds |
-|-------|---------|------|
-| `benchmarks` | `pip install "avaliar-python-sdk[benchmarks]"` | MMLU, HellaSwag, DROP, TruthfulQA, BigBenchHard, HumanEval and the BBQ, BOLD, HEx-PHI, RealToxicityPrompts evals |
-| `local` | `pip install "avaliar-python-sdk[local]"` | Console output for local detection. The local detection engine itself is shared on request; see [Detection modes](/sdk/detection#detection-modes). |
+|---|---|---|
+| `local` | `pip install "avaliar-python-sdk[local]"` | Local ONNX models on CPU (tier 1): prompt injection and toxicity, plus jailbreak, names and addresses, off topic and groundedness models fetched with `avaliar models pull` |
+| `otel` | `pip install "avaliar-python-sdk[otel]"` | An OpenTelemetry span for every check and for every `@traceable` function. See [OpenTelemetry](/sdk/opentelemetry). |
+| `openai-agents` | `pip install "avaliar-python-sdk[openai-agents]"` | `protect()` and `run()` for the OpenAI Agents SDK |
+| `langchain` | `pip install "avaliar-python-sdk[langchain]"` | `AvaliarMiddleware` for LangChain 1.x agents |
+| `mcp` | `pip install "avaliar-python-sdk[mcp]"` | `GuardedSession` for MCP clients |
 
-## Configure
-
-Set your API key from **Settings, API Keys** in the dashboard:
-
-```bash
-export AVALIAR_API_KEY="av_..."
-```
-
-That is all most apps need. Everything else is optional:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AVALIAR_API_KEY` | none | Your API key. Without it, traced functions still run and nothing is sent (one warning is logged). |
-| `AVALIAR_API_URL` | Avaliar's API | Override only for a self-hosted or test backend. |
-| `AVALIAR_ENVIRONMENT` | the key's environment | Tag traces `development`, `staging` or `production`. |
-| `AVALIAR_TIMEOUT` | `10` | Seconds to wait for the API when sending traces. |
-| `AVALIAR_BLOCKING_TIMEOUT` | `10` | Seconds the blocking prompt check may take. |
-| `AVALIAR_FAIL_CLOSED` | off | `1` refuses blocking calls whose prompt could not be checked. |
-| `AVALIAR_FLUSH_TIMEOUT` | `5` | Seconds to spend sending queued traces at exit. |
-
-## First trace
-
-```python
-from avaliar import traceable
-from openai import OpenAI
-
-client = OpenAI()
-
-@traceable("llm", model="gpt-4o", provider="openai")
-def generate(messages: list):
-    return client.chat.completions.create(model="gpt-4o", messages=messages)
-
-response = generate([{"role": "user", "content": "Hello, world!"}])
-```
-
-Return the provider's response object or a string: the SDK reads the answer text and token counts from OpenAI, Anthropic, Google GenAI and LangChain responses, and joins streamed chunks.
-
-Traces are sent from a background queue, so the traced function never waits on the network. They are flushed automatically when the process exits.
+Extras combine: `pip install "avaliar-python-sdk[local,otel,langchain]"`.
 
 <Note>
-  In serverless functions (AWS Lambda, Cloud Run jobs), call `avaliar.flush()` before the handler returns, since the process is frozen rather than exited.
+  Nothing downloads at runtime. Model files come with the `[local]` extra or from an explicit `avaliar models pull`, and are checked against pinned sha256 hashes. The local deep check (Clef-Flash, 5.4 GB) is fetched only when you ask for it by name.
 </Note>
+
+## Check the install
+
+```bash
+avaliar --version
+avaliar doctor
+```
+
+`avaliar doctor` checks the Python version, the policy, the local models, the deep check, the evidence log and the machine, and tells you what is missing. See the [Quickstart](/sdk/quickstart) for the full first run.
+
+## Environment variables
+
+None are required. These change where the SDK looks or what it does:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `AVALIAR_POLICY` | `./avaliar.yaml` | Path to the policy file when `Guard()` is given none |
+| `AVALIAR_HOME` | the policy file's folder | Base folder for evidence paths and the per-install secret |
+| `AVALIAR_APP` | none | App name written on every evidence record (`app:` in the policy wins) |
+| `AVALIAR_MODELS_DIR` | none | Extra folder to look for local model files in |
+| `AVALIAR_ONNX_THREADS` | `2` | Threads per local model |
+| `AVALIAR_LLAMA_SERVER` | the pinned install, then `PATH` | The `llama-server` binary for the local deep check |
+| `AVALIAR_API_KEY` | none | Links the SDK to Avaliar Cloud. See [Connecting to Avaliar Cloud](/sdk/cloud). |
+| `AVALIAR_API_URL` | `https://api.avaliar.ai/api/v1` | Avaliar Cloud address, used only when `AVALIAR_API_KEY` is set |
+| `AVALIAR_TIMEOUT` | `10` | Seconds to wait for Avaliar Cloud |
+| `AVALIAR_NO_TIPS` | off | Hide the tips the CLI prints |
+
+Deep check providers read their own key variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on). See [Deep check](/sdk/deep-check).
 
 ## Logging
 
-The SDK logs to the `avaliar` logger. It warns once about problems that need you (a missing key, a rejected trace, a prompt that could not be checked) and never raises from background sending.
+The SDK logs to the `avaliar` logger. It warns once about problems that need you (a policy warning, evidence that cannot be written, a deep check that is unreachable) and never raises from a check. `avaliar -v <command>` prints SDK activity on the command line.
 
 ```python
 import logging
-logging.getLogger("avaliar").setLevel(logging.WARNING)
+logging.getLogger("avaliar").setLevel(logging.INFO)
 ```
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="@traceable" icon="code" href="/sdk/traceable">
-    Instrument LLM, tool and agent functions.
+  <Card title="Quickstart" icon="rocket" href="/sdk/quickstart">
+    Write a policy, check your first message, read the log.
   </Card>
-  <Card title="Detection and blocking" icon="shield" href="/sdk/detection">
-    Scan answers and block unsafe prompts.
+  <Card title="Guard and decisions" icon="shield-check" href="/sdk/guard">
+    The `Guard` class and the `Decision` it returns.
   </Card>
-  <Card title="AvaliarBaseLLM" icon="robot" href="/sdk/base-llm">
-    Wrap a model for benchmarks and evals.
+  <Card title="Policy file" icon="file-code" href="/sdk/policy">
+    Presets, rules, actions and every key in `avaliar.yaml`.
   </Card>
-  <Card title="Error handling" icon="triangle-exclamation" href="/sdk/error-handling">
-    Errors the SDK raises and when.
+  <Card title="What leaves your machine" icon="lock" href="/sdk/network">
+    Every network call the SDK can make, and when.
   </Card>
 </CardGroup>
