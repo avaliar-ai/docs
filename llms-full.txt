@@ -567,7 +567,7 @@ This sends the bundled attack pack, and harmless look-alikes, through your real 
 
 Source: https://docs.avaliar.ai/sdk/guard  |  Section: Python SDK
 
-A `Guard` holds one policy and runs the checks. Create it once, at startup, and share it: it is thread-safe and keeps its models, its evidence writer and its per-session memory between calls.
+A `Guard` holds one policy and runs the checks. Create it once, at startup, and reuse it: it keeps its models, its evidence writer and its per-session memory between calls.
 
 ```python
 from avaliar import Guard

@@ -4,7 +4,7 @@ description: "The Guard class, the five checks, the Decision they return, contex
 icon: "shield-check"
 ---
 
-A `Guard` holds one policy and runs the checks. Create it once, at startup, and share it: it is thread-safe and keeps its models, its evidence writer and its per-session memory between calls.
+A `Guard` holds one policy and runs the checks. Create it once, at startup, and reuse it: it keeps its models, its evidence writer and its per-session memory between calls.
 
 ```python
 from avaliar import Guard
