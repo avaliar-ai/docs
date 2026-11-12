@@ -1,0 +1,65 @@
+---
+title: "OpenTelemetry"
+description: "A span for every check, and the optional @traceable helper for your own functions"
+icon: "chart-gantt"
+---
+
+With the `otel` extra, every check emits an OpenTelemetry span through your app's tracer provider. Spans go wherever your provider sends them; Avaliar adds no exporter of its own.
+
+```bash
+pip install "avaliar-python-sdk[otel]"
+```
+
+Without the extra (or without a configured tracer provider) these spans cost nothing.
+
+## Check spans
+
+Each check becomes a span named `avaliar.check <checkpoint>` on the current trace, back-dated so it covers the time the check took. Its attributes:
+
+| Attribute | Value |
+|---|---|
+| `avaliar.checkpoint` | `input`, `output`, `tool_call`, `tool_result` or `action` |
+| `avaliar.action` | The decision |
+| `avaliar.categories_flagged` | Categories that fired |
+| `avaliar.not_evaluated` | Categories nothing could score |
+| `avaliar.policy_hash` | The policy in force |
+| `avaliar.record_id` | The evidence record's id |
+| `avaliar.latency_ms` | Time the check took |
+| `gen_ai.tool.name` | The tool, for tool checks |
+
+Raw text never goes on a span unless `evidence.capture` is `full`.
+
+When your app already has an active OpenTelemetry trace, the guard uses its trace id for the decision too, so a check's evidence record and its span share an id. See [Traces and context](/sdk/guard#traces-and-context).
+
+## `@traceable`
+
+`@traceable` records a span for each call of your own functions, using the GenAI semantic conventions. It no longer checks anything: what to check and what to do about it is the policy's job, run by a `Guard`.
+
+```python
+from avaliar import traceable
+
+@traceable(span_type="llm", model="gpt-4o", provider="openai")
+def generate(messages: list):
+    return client.chat.completions.create(model="gpt-4o", messages=messages)
+
+@traceable                       # name defaults to the function name, span_type to "chain"
+def answer(question: str) -> str: ...
+```
+
+| Argument | Default | Effect |
+|---|---|---|
+| `name` | the function name | Span name |
+| `span_type` | `chain` | `chain`, `llm`, `tool`, `retriever`, `agent` or `embedding`; sets `gen_ai.operation.name` |
+| `model`, `provider` | none | `gen_ai.request.model` and `gen_ai.system` |
+| `capture_text` | `False` | Put the returned text on the span as `avaliar.output` (first 8,000 characters) |
+| `temperature`, `top_p`, `max_tokens` | none | Recorded as `gen_ai.request.*` |
+
+Token counts are read from the returned object's `usage` (OpenAI and Anthropic shapes) into `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens`. Plain functions, async functions and generators all work.
+
+<Note>
+  The arguments the old decorator took for detection (`detection`, `detectors`, `detection_mode`, `blocking`, `on_block`, `fail_closed`, `blocking_timeout`, `retrieval_context`) now raise a `TypeError` that names their replacement in `avaliar.yaml` or on `Guard`.
+</Note>
+
+## Sending OpenTelemetry to Avaliar
+
+Avaliar also accepts OpenTelemetry data directly from any language. See [OpenTelemetry ingestion](/otlp/overview). That is separate from the SDK's own cloud link, which uploads [evidence](/sdk/cloud).

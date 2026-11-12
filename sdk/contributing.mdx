@@ -1,283 +1,65 @@
 ---
 title: "Contributing"
-description: "Set up a local development environment and contribute to the Avaliar Python SDK"
+description: "Set up a development environment for the Avaliar Python SDK and follow its rules"
 icon: "code-pull-request"
 ---
 
-## Overview
-
-The Avaliar Python SDK is open source and welcomes contributions. This guide covers everything you need to get a local development environment running, submit changes, and follow the project's code standards.
+The SDK is open source. This page covers a local development setup, the project's rules and where things live.
 
 **Repository:** [github.com/avaliar-ai/python-sdk](https://github.com/avaliar-ai/python-sdk)
 
-## Prerequisites
+## Set up
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Python | 3.10+ | The SDK supports 3.10 to 3.13; CI tests all four. |
-| Git | Any | For cloning and branching. |
-| `uv` | Latest | Recommended package manager. See install instructions below. |
-
-### Install uv
-
-The SDK project uses `uv` for dependency management. Install it with:
+You need Python 3.11 or newer, Git and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Or with pip:
-
-```bash
-pip install uv
-```
-
-## Setup
-
-### 1. Fork and Clone
-
-Fork the repo on GitHub, then clone your fork:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/python-sdk.git
+git clone https://github.com/avaliar-ai/python-sdk.git
 cd python-sdk
+uv sync --extra local --extra otel
 ```
 
-### 2. Install dependencies
-
-Install the package in editable mode with development dependencies:
+## Commands
 
 ```bash
-uv sync --dev
+uv run pytest                                   # no network, no keys needed
+uv run --python 3.11 pytest                     # the lowest supported version
+uv run ruff check --no-fix avaliar tests scripts
+uv run mypy avaliar
+uv run python scripts/accuracy.py --misses      # tier 0 and 1 accuracy on the labelled set
+uv run python -m avaliar.policy.schema > schema/policy.v1.json   # after schema changes
+uv run python scripts/checkpoint_pages.py       # checkpoint reference pages, after category or preset changes
+uv run python models/fetch.py                   # local model files
 ```
 
-This installs the SDK itself, plus all dev tools: `pytest`, `mypy`, `ruff`, and `pre-commit`. Add `--extra benchmarks` to work on benchmarks or evals.
+Tier 1 tests and accuracy runs need the model files: run `models/fetch.py`, then set `AVALIAR_MODELS_DIR=$PWD/models/avaliar_local_models`.
 
-Alternatively, using pip:
+## Rules
 
-```bash
-pip install -e . pytest mypy ruff
-```
+- **No phone-home.** Without `AVALIAR_API_KEY` the SDK makes no network calls to Avaliar. Nothing downloads at runtime. Every new network call goes in `docs/network.md` (see [What leaves your machine](/sdk/network)).
+- **Never silently clean.** A category that could not be scored is `not_evaluated` with a reason, never a pass.
+- **Never break the app.** Checks return a `Decision`. Only `AvaliarPolicyError` (at construction) and the opt-in `GuardBlocked` and `GuardUnavailable` are raised. Detector and deep check faults are caught and recorded.
+- **Python 3.11+.** No syntax that needs 3.12.
+- **A small base install.** `pydantic`, `orjson`, `pyyaml`, `requests`, `typing-extensions`. `import avaliar` loads none of them and stays under 150 ms; heavy imports happen inside functions.
+- **Categories are defined in one place** (`avaliar/categories.py`). A new category also needs a deep check question if it is judgeable, documentation, and reviewed labelled cases.
+- **The labelled set** only takes cases that passed a second review, from public data with a redistributable licence, and never data a local model was trained on.
+- No em dashes in code, comments or docs.
 
-### 3. Install pre-commit hooks
+## Layout
 
-```bash
-uv run pre-commit install
-```
-
-Pre-commit runs type checking and linting automatically before every commit.
-
-### 4. Set environment variables
-
-```bash
-export AVALIAR_API_KEY="your-api-key"   # only to send real traces; tests need none
-```
-
-## Project Structure
-
-```
-python-sdk/
-├── avaliar/
-│   ├── __init__.py              # Public exports: traceable, session, flush, errors...
-│   ├── trace.py                 # @traceable decorator and the blocking prompt gate
-│   ├── run_tree.py              # RunTree: one span, its serialization and sending
-│   ├── client.py                # HTTP client: timeouts, retries, error mapping
-│   ├── _transport.py            # Background queue that sends spans
-│   ├── _extract.py              # Reads prompt/answer text from provider objects
-│   ├── schemas.py               # Pydantic models (Run, GenerationInfo, LLMInputMessage)
-│   ├── detectors/
-│   │   ├── __init__.py          # Exports: DetectorType, Detector
-│   │   └── evaluator.py         # Detector class with rich console output
-│   ├── _evals/
-│   │   └── eval.py              # DetectionRunner: local detection in a thread
-│   ├── models/
-│   │   └── base.py              # AvaliarBaseLLM abstract class and TestCase model
-│   ├── benchmarks/
-│   │   ├── base.py              # BaseBenchmark abstract class
-│   │   ├── metrics.py           # Scoring functions (exact match, F1, etc.)
-│   │   ├── mmlu/                # MMLU benchmark
-│   │   ├── drop/                # DROP benchmark
-│   │   ├── hellaswag/           # HellaSwag benchmark
-│   │   ├── truthful_qa/         # TruthfulQA benchmark
-│   │   ├── big_bench_hard/      # BigBenchHard benchmark
-│   │   └── human_eval/          # HumanEval benchmark
-│   ├── evals/
-│   │   ├── bias/bbq/            # BBQ bias eval
-│   │   ├── bias/bold/           # BOLD eval
-│   │   └── safety/              # HExPHI and RealToxicityPrompts evals
-│   ├── utils/
-│   │   └── _uuid.py             # UUIDv7 generation
-│   └── errors/
-│       └── client_errors.py     # Exception hierarchy
-├── tests/                       # pytest suite against an in-process fake API
-├── pyproject.toml               # Package config, deps, tool settings
-└── README.md
-```
-
-## Dev Commands
-
-Run these from the project root:
-
-```bash
-# Tests (no network or API key needed)
-uv run pytest
-
-# On another Python version
-uv run --python 3.10 pytest
-
-# Type checking
-uv run mypy avaliar tests
-
-# Linting (with auto-fix)
-uv run ruff check avaliar/
-
-# Formatting
-uv run ruff format avaliar/
-
-# Run all pre-commit hooks against all files
-uv run pre-commit run --all-files
-```
-
-## Code Standards
-
-### Formatting and Linting
-
-The project uses `ruff` for both linting and formatting. Key settings (from `pyproject.toml`):
-
-- Line length: **79 characters**
-- Quote style: **double quotes**
-- Python target: **3.10** (keep syntax 3.10-compatible: no `type X = ...`, no `def f[T]()`)
-
-Run `ruff format avaliar/` before committing. Pre-commit does this automatically.
-
-### Type Annotations
-
-All functions must have complete type annotations. The project uses `mypy` in strict mode with pydantic plugin:
-
-```python
-# Good
-async def generate(messages: list[dict[str, str]]) -> str: ...
-
-# Bad — missing return type
-async def generate(messages):  ...
-```
-
-Run `mypy avaliar/` to check before committing. Pre-commit does this automatically.
-
-### No bare `except`
-
-Always catch specific exceptions or at minimum `Exception`:
-
-```python
-# Good
-try:
-    result = risky_call()
-except ValueError as e:
-    handle(e)
-
-# Bad
-try:
-    result = risky_call()
-except:
-    pass
-```
-
-### Public API surface
-
-The public API is whatever is exported from `avaliar/__init__.py`. Currently:
-
-```python
-from avaliar import traceable, AvaliarBaseLLM, PromptBlockedError
-from avaliar.detectors import DetectorType, Detector
-from avaliar.models.base import AvaliarBaseLLM, TestCase
-from avaliar.errors.client_errors import AvaliarError  # and subclasses
-```
-
-If you're adding a new public symbol, update `__init__.py` and document it.
-
-## Making Changes
-
-### Branch naming
-
-```bash
-git checkout -b feat/my-new-feature
-git checkout -b fix/detector-crash-on-empty-input
-```
-
-### Commit style
-
-Use short, descriptive commit messages in the imperative mood:
-
-```
-Add batch_generate support to Detector class
-Fix token extraction for Anthropic response format
-Support sync generators in @traceable decorator
-```
-
-### Pull Requests
-
-1. Make sure `pre-commit run --all-files` passes cleanly
-2. Add or update docstrings for any new or changed public methods
-3. Include a short description of what changed and why
-4. Link any relevant issues
-
-## Adding a New Benchmark
-
-Benchmarks live in `avaliar/benchmarks/`. To add one:
-
-1. Create a new directory: `avaliar/benchmarks/your_benchmark/`
-2. Implement `task.py` (an enum of benchmark tasks), `template.py` (prompt formatting), and `your_benchmark.py` (the main class)
-3. Inherit from `BaseBenchmark` and implement `load_benchmark_dataset()` and `evaluate()`
-4. Export from `avaliar/benchmarks/__init__.py`
-
-```python
-from avaliar.benchmarks.base import BaseBenchmark, BaseBenchmarkResult
-from avaliar.models.base import AvaliarBaseLLM
-
-
-class MyBenchmark(BaseBenchmark):
-    def __init__(self, tasks: list[MyTask], n_shots: int = 5) -> None:
-        super().__init__()
-        self.tasks = tasks
-        self.n_shots = n_shots
-        self.overall_score = None
-
-    def load_benchmark_dataset(self, task: "MyTask") -> list:
-        from datasets import load_dataset
-        dataset = load_dataset("owner/dataset-name", task.value)
-        # ... transform into TestCase list
-
-    def evaluate(self, model: AvaliarBaseLLM) -> BaseBenchmarkResult:
-        # run predictions, compute accuracy
-        self.overall_score = accuracy
-        return BaseBenchmarkResult(overall_accuracy=accuracy)
-```
-
-## Adding a New Detector
-
-Detection itself lives in Avaliar's detection engine, which is not part of this repository. The SDK only names detectors (`avaliar/detectors/types.py`, kept in sync with the backend) and routes data to the engine. To propose a new detector, open an issue describing what it should catch.
-
-## Troubleshooting Local Setup
-
-**`ModuleNotFoundError: No module named 'avaliar_eval'`**
-
-That is the local detection engine, which is shared on request and not needed for development: the tests run without it.
-
-**`mypy` errors on build directory**
-
-The `build/` directory is excluded from mypy checks by default in `pyproject.toml`. If you see errors there, ensure your mypy config matches:
-
-```toml
-[tool.mypy]
-exclude = ["build"]
-```
-
-**Pre-commit hook fails on first run**
-
-Pre-commit downloads hook dependencies on first run. If it fails:
-
-```bash
-uv run pre-commit clean
-uv run pre-commit install
-uv run pre-commit run --all-files
-```
+| Path | What |
+|---|---|
+| `avaliar/guard.py` | `Guard`, the checks, redaction, evidence records, approval |
+| `avaliar/engine/` | Tiers, bands, budgets, the deep check call, rules, per-session memory |
+| `avaliar/policy/` | Schema, loader (`extends`, merge, example files, hash, line numbers), presets |
+| `avaliar/examples.py` | Your own examples: normalising, matching, example files |
+| `avaliar/detectors/rules/` | Tier 0, one module per rule detector |
+| `avaliar/detectors/local/` | Tier 1, one module per local model (ONNX) |
+| `avaliar/judges/` | Tier 2: decision models (Clef-Flash, Jev), LLM APIs, Avaliar Cloud |
+| `avaliar/evidence/` | Records, the hash-chained writer, `verify` |
+| `avaliar/cli/` | The `avaliar` command |
+| `avaliar/setup/` | `avaliar setup` and `avaliar init` |
+| `avaliar/integrations/` | OpenAI Agents SDK, LangChain, MCP |
+| `avaliar/redteam/` | The red-team runner and the bundled pack |
+| `avaliar/trace.py`, `avaliar/telemetry/` | `@traceable` and OpenTelemetry output |
+| `avaliar/cloud/` | The Avaliar Cloud client and the evidence uploader |
+| `tests/labelled/` | The open labelled set, its sources, and the accuracy baseline |

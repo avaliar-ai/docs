@@ -1,0 +1,27 @@
+---
+title: "What leaves your machine"
+description: "Every network call the SDK can make, when it makes it, and what it sends"
+icon: "lock"
+---
+
+By default, nothing. The open tiers make no network calls: the SDK's test suite runs every checkpoint with sockets disabled. This page lists every call the SDK can make, and exactly when.
+
+| Call | When | Where to | What is sent |
+|---|---|---|---|
+| Deep check request | Only if `judge.provider` is `jev`, `openai`, `anthropic`, `gemini`, `groq` or `openrouter` and that provider's key is set, or `local`; and only for categories tiers 0 and 1 left uncertain or unscored | The provider you chose: `api.typesafe.ai`, `127.0.0.1:8080` for `local` (this machine), `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, `api.groq.com`, `openrouter.ai`, or your `judge.base_url` | The checked text, the category names, and the user prompt when given. One call per check at most. A log line says so the first time. |
+| Avaliar Cloud deep check | Only if `judge.provider: avaliar` and `AVALIAR_API_KEY` is set (Pro plan) | `AVALIAR_API_URL`, default `https://api.avaliar.ai/api/v1` | The same as a deep check request |
+| Evidence upload | Only if `AVALIAR_API_KEY` is set | `AVALIAR_API_URL`, default `https://api.avaliar.ai/api/v1` | Your evidence records as written locally, at your `evidence.capture` level, in gzipped batches from a background thread. See [Connecting to Avaliar Cloud](/sdk/cloud). |
+| Model download | Only when you run `avaliar models pull`, `avaliar judge install`, or press Install in `avaliar setup` | Hugging Face or the model's upstream host (never Avaliar) | A file request; files are checked against pinned sha256 hashes. Clef-Flash (5.4 GB) is fetched only when named. |
+| llama.cpp server download | Only when you run `avaliar judge install` and no `llama-server` is found | `github.com/ggml-org/llama.cpp` releases (a pinned build) | A file request, checked against a pinned sha256 |
+| Setup page | Only while `avaliar setup` runs | Nothing leaves. It serves `127.0.0.1` only, answers only requests carrying its one-time token and its own Host header, and reports whether key variables are set, never their values. | Nothing |
+| Deep check test request | Only when you press "Send a test call" in `avaliar setup` or run `avaliar doctor --online` | The configured provider | One fixed test sentence |
+
+There is no usage telemetry and no update check. The default Avaliar URL is used only when `AVALIAR_API_KEY` is set.
+
+OpenTelemetry spans go wherever your own tracer provider sends them, and carry no raw text unless `evidence.capture` is `full`.
+
+## Keeping everything local
+
+- Leave `AVALIAR_API_KEY` unset.
+- Use `judge.provider: local` (or `none`).
+- Install models ahead of time (`avaliar models pull`, `avaliar judge install`) on a machine with network access, or copy the files and point `AVALIAR_MODELS_DIR` at them.

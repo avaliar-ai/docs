@@ -1,0 +1,104 @@
+---
+title: "Framework integrations"
+description: "One line to guard OpenAI Agents SDK, LangChain and MCP agents"
+icon: "plug"
+---
+
+Each integration translates a framework's objects into the plain checks and maps the decision back onto what the framework can do. The policy in `avaliar.yaml` decides; the integration only carries the decision out. The evidence is the same as calling the checks by hand, and every check of one agent run shares a trace id, so the run shows as one trace.
+
+| Framework | Install | Wiring |
+|---|---|---|
+| OpenAI Agents SDK | `pip install "avaliar-python-sdk[openai-agents]"` | `protect(agent)`, and optionally `run(agent, input)` |
+| LangChain agents (1.x, `create_agent`) | `pip install "avaliar-python-sdk[langchain]"` | `middleware=[AvaliarMiddleware()]` |
+| MCP clients (`mcp.Client`, `mcp.ClientSession`) | `pip install "avaliar-python-sdk[mcp]"` | `GuardedSession(client)` |
+
+Each takes `guard=` (a `Guard`); without it the default guard is used (`./avaliar.yaml`, else the recommended policy).
+
+<Note>
+  **Coming soon:** Pydantic AI, CrewAI, LlamaIndex, and guarding OpenAI and Anthropic client calls with no code changes. Until then the plain checks work with any framework: call `check_input`, `check_output`, `check_tool_call`, `check_tool_result` or `@guard.tool` where your app talks to the model.
+</Note>
+
+## OpenAI Agents SDK
+
+```python
+from agents import Agent
+from avaliar.integrations.openai_agents import protect, run
+
+agent = protect(Agent(name="support", instructions="...", tools=[lookup_order]))
+
+out = await run(agent, user_message)
+print(out.final_output)          # redacted, or the block reply
+```
+
+`protect(agent)` returns a copy of the agent with checks on the user's message, the final reply and every function tool. The tool definitions are checked once, in `protect()`: a poisoned description is logged and that tool is left out.
+
+The SDK's guardrails can stop a run but cannot change text. So with `protect` alone, a block stops the run (`InputGuardrailTripwireTriggered` or `OutputGuardrailTripwireTriggered`) and a redaction of the message or reply is recorded but not applied. `run(agent, input)` also applies redactions to the message and the reply, never raises for a block (it returns the policy's reply), and gives every check of the run one trace id. It returns a `GuardedRun` with `final_output`, `blocked`, `input_decision`, `output_decision` and the SDK's `result`. Extra keyword arguments go to the SDK's runner.
+
+The input check runs before the model call, not in parallel with it, so a blocked message never reaches the model. Tools on `agent.mcp_servers` are listed by the SDK at run time; wrap the MCP client with `GuardedSession` for those.
+
+For finer control, `input_guardrail()`, `output_guardrail()`, `tool_input_guardrail()` and `tool_output_guardrail()` in the same module return the individual guardrails.
+
+## LangChain
+
+```python
+from langchain.agents import create_agent
+from avaliar.integrations.langchain import AvaliarMiddleware
+
+agent = create_agent(model, tools=[...], middleware=[AvaliarMiddleware()])
+```
+
+One middleware covers the whole run: the user's message before the agent runs, every model reply, every tool call before it runs, every tool result before the model reads it, and the tools offered to the model (checked once each). `AvaliarMiddleware(guard=None, agent=None)` takes an optional guard and an agent name for the evidence. The trace id is kept in the agent's state (`avaliar_trace_id`), so it survives LangGraph running hooks in separate tasks and threads.
+
+## MCP clients
+
+```python
+from mcp import Client
+from avaliar.integrations.mcp import GuardedSession
+
+async with Client("http://localhost:8000/mcp") as client:
+    tools = GuardedSession(client, server="crm")
+    listing = await tools.list_tools()          # poisoned tools left out
+    result = await tools.call_tool("lookup", {"id": 42})
+```
+
+`list_tools` checks every tool's definition once; a blocked tool is left out of the listing and logged. `call_tool` checks the call first and the result before the agent reads it. Any other attribute passes through to the wrapped client.
+
+A session spans many agent runs, so its checks use the caller's trace (`guard.context(trace_id=...)`) or the guard's own turn tracking. `GuardedSession(client, context={"session_id": ...})` adds context to every check.
+
+## What each decision does
+
+| Decision | OpenAI Agents SDK | LangChain | MCP |
+|---|---|---|---|
+| user message blocked | the run stops before the model; `run()` returns the block reply instead | the run ends with an AI message carrying the block reply | n/a |
+| user message redacted | `run()` sends the redacted text; `protect()` alone records the redaction | the message the model reads is replaced | n/a |
+| reply blocked | the run stops; `run()` returns the block reply | the reply is replaced by the block reply and the run ends | n/a |
+| reply redacted | `run()` returns the redacted text; `protect()` alone records it | the reply's text is replaced | n/a |
+| tool call blocked, or approval denied | the tool does not run; the model is told with the block reply | the tool does not run; the model gets an error tool message with the block reply | the server is not called; an error result with the block reply |
+| tool call needs approval | your `approval_handler` decides (`Guard(approval_handler=...)`) | same | same |
+| tool arguments redacted | the call is not run (the SDK cannot rewrite arguments) | the tool receives the redacted arguments | the server receives the redacted arguments |
+| tool result blocked | the model reads the block reply instead | the tool message becomes the block reply | an error result with the block reply |
+| tool result redacted | the model reads the redacted text | the tool message's text is replaced | the text is replaced; structured content is dropped |
+| tool definition poisoned | that tool is left out of the agent (checked once, in `protect()`) | that tool is hidden from the model | that tool is left out of `list_tools` |
+
+## Any other framework
+
+Call the checks where your code hands text to the model and gets text back:
+
+```python
+from avaliar import Guard
+
+guard = Guard()
+
+@guard.tool
+def lookup_order(order_id: str) -> dict: ...
+
+def reply(user_message: str) -> str:
+    with guard.context(session_id=session.id):
+        d = guard.check_input(user_message)
+        if d.blocked:
+            return d.reply
+        answer = your_agent.run(d.text, tools=[lookup_order])
+        return guard.check_output(answer).text
+```
+
+`avaliar init` looks at your project and prints the integration line for each framework it finds.

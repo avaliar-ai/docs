@@ -1,0 +1,67 @@
+---
+title: "Connecting to Avaliar Cloud"
+description: "Set AVALIAR_API_KEY to upload guard evidence and see guard traces on your team's dashboard, with no code change"
+icon: "cloud"
+---
+
+The SDK works fully offline. When your team wants one place to see what every app and agent is doing, link it to Avaliar Cloud with one environment variable. Nothing about your code changes.
+
+<Steps>
+  <Step title="Create an SDK key">
+    In the [dashboard](https://app.avaliar.ai), open **Settings, API Keys**, click **Create Key** and choose the **`sdk`** scope. To see the app under an agent in the Agent Hub, use a key linked to that agent.
+  </Step>
+  <Step title="Set the key where your app runs">
+    ```bash
+    export AVALIAR_API_KEY="av_..."
+    ```
+
+    Treat it like a password: keep it in your secret store, never in source control or a browser.
+  </Step>
+  <Step title="Check the link">
+    ```bash
+    avaliar doctor
+    ```
+
+    `avaliar doctor` and `avaliar stats` show whether the link is on; `doctor` also shows how many records are waiting to upload.
+  </Step>
+</Steps>
+
+## What is uploaded
+
+Your evidence records, exactly as written to the local file, at your `evidence.capture` level. With the default `redacted`, personal data and secrets the detectors find are replaced with placeholders in the text and in finding details, whatever the rule did with them. Anything the detectors miss stays as written, so use `capture: none` to send no text at all. See [Evidence and verify](/sdk/evidence) for every field.
+
+- Uploads run on a background thread, in gzipped batches of up to 200 records, from the local files with a cursor per file. A check never waits on the network.
+- The local file stays the source of truth: an outage or a restart loses nothing, and the next pass sends what is outstanding.
+- The cloud re-checks every record's hash and chain link on arrival. Records that fail are stored with the reason, so tampering shows on the dashboard too.
+- Uploads are idempotent: a record sent twice is counted once.
+- With a key but no evidence in the policy (no `avaliar.yaml`, or a policy passed as a dict), records are kept in a private folder in the system temp directory, per user and per key, to upload from. Your app's directory is never used for that.
+- Each batch names the app (`app:` in the policy, or `$AVALIAR_APP`), the SDK version, and the AI framework already loaded in your process (for example LangChain), for the Agent Hub. Nothing is imported to find it.
+
+For CI and batch jobs that exit quickly, upload what is outstanding before the job ends:
+
+```bash
+avaliar sync
+```
+
+## What shows on the dashboard
+
+- **Traces page:** each request's checks (input, tool calls, tool results, output) share a trace id, so they appear as one guard trace beside your other traces, with the decision, the categories flagged and the latency of each check. Set your own id with `guard.context(trace_id=...)`, or the SDK uses your OpenTelemetry trace.
+- **Agent Hub:** when the key belongs to an agent, the agent shows as connected, with when it was last seen and the framework it runs on.
+- **Usage:** a guard trace counts once toward your plan's monthly traces, however many checks it holds.
+
+Blocks map to high severity, approvals and redactions to medium, warnings to low.
+
+## The Avaliar deep check (Pro)
+
+On the Pro plan, `judge.provider: avaliar` uses Avaliar's tuned deep check for the messages your local tiers are unsure about:
+
+```yaml
+judge:
+  provider: avaliar
+```
+
+This sends the text being judged to Avaliar Cloud. See [Deep check](/sdk/deep-check).
+
+## Turning it off
+
+Unset `AVALIAR_API_KEY`. Without a key the SDK makes no network calls to Avaliar at all, and the local log carries on as before. See [What leaves your machine](/sdk/network).

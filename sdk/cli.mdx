@@ -1,0 +1,109 @@
+---
+title: "CLI reference"
+description: "Every avaliar command and its flags"
+icon: "terminal"
+---
+
+The SDK installs an `avaliar` command. Global flags: `--version`, and `-v` / `--verbose` to log SDK activity to stderr. Commands that read a policy take `--policy` / `-p` (default: `$AVALIAR_POLICY`, then `./avaliar.yaml`), and most take `--json` for machine output.
+
+## Set up
+
+### `avaliar setup`
+
+Opens the setup page in your browser, served on 127.0.0.1 only and wired to this project: pick local models, an API or both, try a check, and write the files.
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--dir` | `.` | Project folder |
+| `--port` | any free port | Port for the page |
+| `--no-browser` | off | Print the address instead of opening a browser |
+
+### `avaliar init`
+
+Asks the same two questions in the terminal and writes `avaliar.yaml`, `.avaliar/` (evidence and a per-install secret) and the `.gitignore` lines for them. Prints the integration line for each AI framework it finds in the project.
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--preset` | `recommended` | `recommended`, `strict` or `minimal` |
+| `--how` | asked | `both` (local models, plus an API for the unsure few), `local` or `api` |
+| `--provider` | asked | `anthropic`, `jev`, `openai`, `gemini`, `groq` or `openrouter`, for `both` or `api` |
+| `--deep-check` / `--no-deep-check` | asked | With `--how local`: add Clef-Flash |
+| `--yes`, `-y` | off | Take the defaults without asking |
+| `--dir` | `.` | Where to write |
+| `--force` | off | Overwrite an existing `avaliar.yaml` |
+
+### `avaliar doctor`
+
+Checks the install: Python version, policy, local models, deep check, evidence, the cloud link and the machine.
+
+| Flag | Effect |
+|---|---|
+| `--measure` | Also time every installed model on this machine |
+| `--online` | Send one test request to an API deep check (may cost a fraction of a cent) |
+| `--policy`, `--json` | As above |
+
+## Check
+
+### `avaliar scan TEXT`
+
+Runs one check and prints the decision, the reasons and every finding. `TEXT` may be `-` to read stdin. Nothing is recorded unless you ask.
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--checkpoint`, `-c` | `input` | `input`, `output`, `tool_call`, `tool_result` or `action` |
+| `--name` | `tool` / `action` | Tool or action name for those checkpoints. For `tool_call` and `action`, `TEXT` may be a JSON object of arguments. |
+| `--context` | none | Retrieval context for hallucination (repeatable) |
+| `--record` | off | Also write the decision to the evidence log |
+| `--exit-code` | off | Exit 2 when blocked, for scripts and CI |
+| `--policy`, `--json` | | As above |
+
+### `avaliar redteam`
+
+Runs the attack pack against your app. See [Red-team](/sdk/redteam) for every flag.
+
+## Policy
+
+| Command | Effect |
+|---|---|
+| `avaliar policy check [FILE]` | Validate a policy; errors carry line numbers |
+| `avaliar policy show [FILE] [--json]` | Print the resolved policy (presets merged in) and its hash |
+| `avaliar detectors [--json]` | List every category, its short name, checkpoints, options and what it needs |
+
+## Evidence
+
+### `avaliar logs`
+
+Reads the evidence log, newest last.
+
+| Flag | Default | Effect |
+|---|---|---|
+| `-n` | `50` | Last N records (`0` for all) |
+| `--follow`, `-f` | off | Keep printing new records |
+| `--action` | all | `allow`, `warn`, `redact`, `block` or `approve` |
+| `--checkpoint` | all | One checkpoint |
+| `--since` | all | For example `30m`, `12h`, `7d` |
+| `--path` | from the policy | Evidence folder |
+| `--policy`, `--json` | | As above |
+
+### `avaliar stats`
+
+Counts by action, category and tier, how often categories were not evaluated, and the cloud link. Takes `--since`, `--path`, `--policy` and `--json`.
+
+### `avaliar verify [TARGET]`
+
+Checks the evidence hash chains in a file or folder (default: the policy's evidence folder). Exits 0 when every chain verifies, 1 otherwise. Takes `--policy` and `--json`. See [Evidence and verify](/sdk/evidence).
+
+### `avaliar sync`
+
+Uploads every evidence record not yet in Avaliar Cloud, then exits. Needs `AVALIAR_API_KEY`. Takes `--path` and `--policy`. See [Connecting to Avaliar Cloud](/sdk/cloud).
+
+## Models and the deep check
+
+| Command | Effect |
+|---|---|
+| `avaliar models list` | Which local models are installed, with their licences |
+| `avaliar models pull [NAMES...]` | Download pinned model files (sha256 checked) into `~/.cache/avaliar`. With no names, every downloadable model except Clef-Flash. |
+| `avaliar judge install [--server-only]` | Fetch a pinned llama.cpp server and Clef-Flash (5.4 GB); `--server-only` skips the model |
+| `avaliar judge start [--port 8080] [--threads N]` | Start the local deep check on 127.0.0.1 in the background |
+| `avaliar judge stop` | Stop it |
+| `avaliar judge status [--json]` | What is installed and whether it answers |
