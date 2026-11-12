@@ -6,7 +6,7 @@ icon: "scroll"
 
 ## Overview
 
-Policies let you define governance rules that automatically evaluate every AI trace your system produces. When a trace matches a rule — a hallucination is detected, PII leaks into a response, or a prompt injection attempt is made — the policy fires, records a violation, and takes the actions you configured.
+Policies let you define governance rules that automatically evaluate every AI trace your system produces. When a trace matches a rule (a hallucination is detected, PII leaks into a response, or a prompt injection attempt is made), the policy fires, records a violation, and takes the actions you configured.
 
 Policies are the proactive layer of Avaliar. Alerts tell you when something is wrong after the fact; policies watch every trace and immediately flag the ones that matter.
 
@@ -20,7 +20,7 @@ Manage policies at [app.avaliar.ai/policies](https://app.avaliar.ai/policies).
 
 Every time a trace is processed by Avaliar, all active policies in your organization are evaluated against it. If the trace matches a policy's conditions, a **violation** is recorded and the policy's configured actions are executed.
 
-The evaluation is automatic — you don't need to trigger it manually. Any trace coming in from the [Python SDK](/sdk/installation) or the [Proxy](/proxy/overview) is checked.
+The evaluation is automatic: you don't need to trigger it manually. Any trace coming in from the [Proxy](/proxy/overview) or over [OpenTelemetry](/otlp/overview) is checked. The [Python SDK](/sdk/installation) decides in your process instead, by the rules in its own policy file (see [Policy file](/sdk/policy)).
 
 ## Policy Types
 
@@ -40,7 +40,7 @@ Policies are organized into four types based on what they govern.
   </Accordion>
 
   <Accordion title="Threshold" icon="gauge">
-    Triggers when detected issues cross a severity level. Use threshold policies to enforce a minimum quality bar — for example, blocking any trace with a critical-severity issue before it reaches production.
+    Triggers when detected issues cross a severity level. Use threshold policies to enforce a minimum quality bar: for example, blocking any trace with a critical-severity issue before it reaches production.
 
     **Best for:** Production readiness gates and quality assurance pipelines.
   </Accordion>
@@ -68,8 +68,8 @@ Each policy has a set of **rules** that define what to watch for. A rule specifi
 
 Rules are combined using **AND** or **OR** logic:
 
-- **OR** — the policy fires if *any* rule matches (most common)
-- **AND** — the policy fires only if *all* rules match
+- **OR**: the policy fires if *any* rule matches (most common)
+- **AND**: the policy fires only if *all* rules match
 
 For each rule, you can optionally set a minimum **severity** (`low`, `medium`, `high`, `critical`). Setting `medium+` means the policy only fires if the issue is at medium severity or higher.
 
@@ -79,7 +79,7 @@ The enforcement mode controls what happens when a policy condition is met.
 
 | Mode | Behavior |
 |---|---|
-| **Monitor** | Record the violation silently. Nothing changes in the trace flow — you get visibility without disruption. |
+| **Monitor** | Record the violation silently. Nothing changes in the trace flow: you get visibility without disruption. |
 | **Warn** | Record the violation and surface a warning. Useful when you want to flag issues without blocking. |
 
 <Tip>
@@ -128,7 +128,7 @@ You can **activate**, **pause**, and **delete** any policy from the Policies lis
 For organizations that need a review step before a policy goes live, Avaliar includes a built-in approval workflow.
 
 1. Create a policy in Draft state
-2. Click **Submit for Review** — the policy moves to `Pending Review`
+2. Click **Submit for Review**: the policy moves to `Pending Review`
 3. A reviewer on your team **Approves** or **Rejects** the policy
 4. Approved policies are automatically activated
 
@@ -145,11 +145,11 @@ To access version history:
 3. Each entry shows the change type, summary, and timestamp
 4. Click **Rollback** on any entry to restore that version
 
-This makes it safe to experiment with policy changes — if something breaks, you can immediately revert.
+This makes it safe to experiment with policy changes: if something breaks, you can immediately revert.
 
 ## Templates
 
-The **Templates** tab provides a library of pre-built policies for common use cases. Using a template creates a new Draft policy pre-filled with the relevant conditions and actions — you can review and customize it before activating.
+The **Templates** tab provides a library of pre-built policies for common use cases. Using a template creates a new Draft policy pre-filled with the relevant conditions and actions. You can review and customize it before activating.
 
 Templates are grouped into four categories:
 
@@ -157,34 +157,34 @@ Templates are grouped into four categories:
   <Accordion title="Security" icon="shield-halved">
     Policies for defending against threats and malicious behavior:
 
-    - **Prompt Injection Defense** — Block and alert on injection and jailbreak attempts
-    - **PII/PHI Data Protection** — Flag personally identifiable or health information in responses
-    - **Toxic Content Shield** — Detect harmful or inappropriate AI-generated content
-    - **Misuse Prevention** — Alert when AI is being used outside its intended scope
+    - **Prompt Injection Defense**: Block and alert on injection and jailbreak attempts
+    - **PII/PHI Data Protection**: Flag personally identifiable or health information in responses
+    - **Toxic Content Shield**: Detect harmful or inappropriate AI-generated content
+    - **Misuse Prevention**: Alert when AI is being used outside its intended scope
   </Accordion>
 
   <Accordion title="Compliance" icon="scale-balanced">
     Policies pre-configured for regulatory frameworks:
 
-    - **HIPAA Compliance** — PHI exposure and PII detection for healthcare data
-    - **GDPR Compliance** — EU personal data protection
-    - **Financial Services (FINRA)** — Prevent unqualified investment advice and hallucinations in financial responses
-    - **Children's Safety (COPPA)** — Block harmful content and data collection for child-focused applications
+    - **HIPAA Compliance**: PHI exposure and PII detection for healthcare data
+    - **GDPR Compliance**: EU personal data protection
+    - **Financial Services (FINRA)**: Prevent unqualified investment advice and hallucinations in financial responses
+    - **Children's Safety (COPPA)**: Block harmful content and data collection for child-focused applications
   </Accordion>
 
   <Accordion title="Quality" icon="sparkles">
     Policies for monitoring AI output quality and accuracy:
 
-    - **Hallucination Guard** — Detect fabricated facts and inaccuracies
-    - **Bias & Fairness** — Monitor for discriminatory outputs
-    - **Misinformation Prevention** — Flag false or misleading information
+    - **Hallucination Guard**: Detect fabricated facts and inaccuracies
+    - **Bias & Fairness**: Monitor for discriminatory outputs
+    - **Misinformation Prevention**: Flag false or misleading information
   </Accordion>
 
   <Accordion title="Operations" icon="chart-line">
     Broad governance and operational policies:
 
-    - **Full Governance Suite** — Catch-all policy that monitors all critical and high-severity issues
-    - **Production Readiness Gate** — Alert on any critical issue before scaling to production
+    - **Full Governance Suite**: Catch-all policy that monitors all critical and high-severity issues
+    - **Production Readiness Gate**: Alert on any critical issue before scaling to production
   </Accordion>
 </AccordionGroup>
 
@@ -227,7 +227,7 @@ Use simulation to tune severity thresholds and understand how noisy a policy wil
 
 ## Violations
 
-When an active policy fires, it creates a **violation** — a record linking the policy to the specific trace that triggered it.
+When an active policy fires, it creates a **violation**: a record linking the policy to the specific trace that triggered it.
 
 Each violation has three states:
 
@@ -301,7 +301,7 @@ This makes it straightforward to promote a policy set from a staging environment
 
 <CardGroup cols={2}>
   <Card title="Alerts" icon="bell" href="/platform/alerts">
-    Set up reactive alerts that fire when metrics cross thresholds — a complement to proactive policies.
+    Set up reactive alerts that fire when metrics cross thresholds, a complement to proactive policies.
   </Card>
   <Card title="Detection" icon="radar" href="/detection/overview">
     Learn about the detectors that power policy conditions and how they analyze your traces.

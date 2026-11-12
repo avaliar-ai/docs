@@ -11,7 +11,7 @@ Avaliar is an AI runtime governance platform that monitors, detects, and provide
     Get up and running with Avaliar in 5 minutes.
   </Card>
   <Card icon="python" href="/sdk/installation" title="Python SDK">
-    Install and configure the Avaliar Python SDK.
+    An open-source runtime guard that runs inside your app, offline.
   </Card>
   <Card icon="server" href="/proxy/overview" title="Proxy Integration">
     Route LLM traffic through the Avaliar Proxy for zero-code tracing.
@@ -24,10 +24,10 @@ Avaliar follows a three-stage lifecycle that takes every LLM interaction from ra
 
 <Steps>
   <Step icon="inbox" title="Capture">
-    Instrument your application with the `@traceable` decorator or route traffic through the Avaliar Proxy. Every request and response is recorded as a structured trace with full metadata, including model, provider, latency, and token counts.
+    Put the open-source Python SDK guard inside your app, route traffic through the Avaliar Proxy, or send OpenTelemetry data. Every request and response is recorded as a structured trace, and every SDK guard decision as a tamper-evident evidence record.
   </Step>
   <Step icon="magnifying-glass" title="Detect">
-    Traces are automatically passed through the detection pipeline. Ten built-in detectors analyze every input and output for safety issues — prompt injection (covering jailbreaks and SQL injection), toxicity, PII, hallucination, bias, misinformation, misuse, graphic content, illegal activities, and personal safety.
+    Inputs, outputs, tool calls and tool results are checked for safety issues: prompt injection (covering jailbreaks and SQL injection), toxicity, PII and secrets, hallucination, bias, misinformation, misuse, graphic content, illegal activities, and personal safety. The SDK checks in your process, before anything reaches your model; Proxy and OpenTelemetry traffic is checked on Avaliar's backend.
   </Step>
   <Step icon="triangle-exclamation" title="Alert">
     When a detector finds an issue, Avaliar scores its severity and evaluates it against your alert rules. Notifications are dispatched to your configured channels so your team can investigate and respond immediately.
@@ -38,7 +38,7 @@ Avaliar follows a three-stage lifecycle that takes every LLM interaction from ra
 
 <CardGroup cols={2}>
   <Card title="Core Concepts" icon="lightbulb" href="/concepts">
-    Understand traces, spans, detectors, issues, alerts, and reports — the building blocks of Avaliar.
+    Understand traces, spans, detectors, issues, alerts, and reports: the building blocks of Avaliar.
   </Card>
   <Card title="Platform" icon="gauge" href="/platform/traces">
     Explore the Traces dashboard, analytics, alerts, and reports in the Avaliar platform.

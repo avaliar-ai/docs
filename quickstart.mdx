@@ -1,23 +1,22 @@
 ---
 title: "Quickstart"
-description: "Start monitoring your LLM calls with Avaliar in 5 minutes — via the Proxy API or the Python SDK"
+description: "Start with Avaliar in 5 minutes: the Proxy API, or the open-source Python SDK guard"
 icon: "rocket"
 ---
 
-There are **two ways** to send your LLM traffic to Avaliar. Both capture every
-request and response as a trace and run safety detection — pick the one that
-fits your stack.
+There are **two ways** to put Avaliar in front of your LLM traffic. Pick the one
+that fits your stack.
 
 <CardGroup cols={2}>
   <Card title="Proxy API" icon="server">
-    Route your LLM calls through Avaliar's endpoint. **No SDK, no decorators** —
+    Route your LLM calls through Avaliar's endpoint. **No SDK, no code changes**:
     swap your provider URL and add your Avaliar key. Works with any language.
-    <br />Best for: quick setup, non-Python apps, blocking prompt injection.
+    <br />Best for: quick setup, non-Python apps.
   </Card>
   <Card title="Python SDK" icon="python">
-    Wrap your LLM functions with the `@traceable` decorator. **Code-native** and
-    gives you local *or* cloud detection.
-    <br />Best for: Python apps, the free plan, fine-grained tracing.
+    An open-source runtime guard inside your app. It checks every message, tool
+    call and reply against a policy you own, and records every decision.
+    <br />Best for: Python apps and agents, offline or private data, no account.
   </Card>
 </CardGroup>
 
@@ -25,36 +24,38 @@ fits your stack.
 
 | | Proxy API | Python SDK |
 | --- | --- | --- |
-| **How you integrate** | Change your endpoint URL | Add a `@traceable` decorator |
-| **Language** | Any (HTTP) | Python |
-| **Code changes** | None beyond the URL | Decorate your LLM functions |
-| **Detection** | Cloud | Local **or** Cloud |
-| **Blocks prompt injection** | Yes (before it reaches the LLM) | No |
-| **Plan required** | Pro | Free |
+| **How you integrate** | Change your endpoint URL | Call the guard's checks, or add one line for your agent framework |
+| **Language** | Any (HTTP) | Python 3.11+ |
+| **Where checks run** | Avaliar's cloud | Inside your process: rules, local models, an optional deep check |
+| **What is checked** | Prompts and responses | Input, output, tool calls, tool results and actions |
+| **Blocks prompt injection** | Yes, before it reaches the LLM | Yes, before it reaches your model |
+| **Account** | Pro plan | None; an `sdk` key adds your team's dashboard |
 
 <Tip>
-  Not sure? If you're in Python and on the free plan, start with the **SDK**. If
-  you want zero code changes or you're not on Python, use the **Proxy API**.
+  Not sure? In Python, start with the **SDK**: it runs offline with no account,
+  and one environment variable links it to the dashboard later. For zero code
+  changes or another language, use the **Proxy API**.
 </Tip>
 
 ---
 
 ## Set up your method
 
-Both paths start with an API key from the [Avaliar Dashboard](https://app.avaliar.ai)
-under **Settings → API Keys** — the only difference is the scope you pick.
+The Proxy needs an API key from the [Avaliar Dashboard](https://app.avaliar.ai)
+with the `proxy` scope. The SDK needs no key to run; an `sdk` key links it to the
+dashboard.
 
 <Tabs>
   <Tab title="Proxy API">
     The proxy exposes an **OpenAI-compatible** endpoint, so any OpenAI SDK or
-    no-code tool works by just changing the base URL — no provider keys in your
+    no-code tool works by just changing the base URL: no provider keys in your
     code, no special request shape.
 
     <Steps>
       <Step title="Create a Proxy API key">
         1. Open **Settings → API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
         2. Click **Create Key** and select the **`proxy`** scope.
-        3. Copy the key — you won't be able to see it again.
+        3. Copy the key. You won't be able to see it again.
 
         <Warning>
           Use your Avaliar key only in server-side code. Never expose it in a
@@ -65,9 +66,9 @@ under **Settings → API Keys** — the only difference is the scope you pick.
       <Step title="Add credits (or bring your own key)">
         Proxy calls run on **OpenRouter** through Avaliar. To use them you need
         either:
-        - **Credits** — every org starts at **$0**; a workspace admin tops up the
+        - **Credits**: every org starts at **$0**; a workspace admin tops up the
           prepaid balance, **or**
-        - **Your own OpenRouter key** — add it under **Settings → Organization →
+        - **Your own OpenRouter key**: add it under **Settings → Organization →
           OpenRouter API Key**. When set, calls bill your OpenRouter account
           directly and credits aren't used.
 
@@ -123,7 +124,7 @@ under **Settings → API Keys** — the only difference is the scope you pick.
         </CodeGroup>
 
         <Info>
-          Models use OpenRouter slugs (`vendor/model`) — `openai/gpt-4o`,
+          Models use OpenRouter slugs (`vendor/model`), such as `openai/gpt-4o`,
           `anthropic/claude-sonnet-4-5`, `google/gemini-2.5-flash`, etc. Find
           them at [openrouter.ai/models](https://openrouter.ai/models). Detection
           runs automatically on every call. Full reference:
@@ -133,7 +134,7 @@ under **Settings → API Keys** — the only difference is the scope you pick.
 
       <Step title="View in the dashboard">
         Open [app.avaliar.ai/traces](https://app.avaliar.ai/traces) to see your
-        traces, detected issues, latency, and cost in real time — a trace
+        traces, detected issues, latency, and cost in real time. A trace
         appears within a few seconds of the call.
       </Step>
     </Steps>
@@ -143,23 +144,55 @@ under **Settings → API Keys** — the only difference is the scope you pick.
     <Steps>
       <Step title="Install the SDK">
         ```bash
-        pip install avaliar-python-sdk
+        pip install "avaliar-python-sdk[local]"
         ```
+
+        Python 3.11 or newer. The `[local]` extra adds the local models; without
+        it the guard runs on rules alone.
       </Step>
 
-      <Step title="Create an SDK key">
-        1. Open **Settings → API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
+      <Step title="Write your policy">
+        ```bash
+        avaliar init       # or: avaliar setup, the same questions in your browser
+        avaliar doctor     # is everything ready?
+        ```
+
+        This writes `avaliar.yaml`, the policy your team owns, and `.avaliar/`,
+        the local evidence log.
+      </Step>
+
+      <Step title="Guard your app">
+        ```python
+        from avaliar import Guard
+
+        guard = Guard()                    # reads ./avaliar.yaml
+
+        d = guard.check_input(user_message)
+        if d.blocked:
+            return d.reply                 # the policy's reply text
+        prompt = d.text                    # original, or with [EMAIL_1]-style redactions
+
+        answer = call_your_model(prompt)
+        answer = guard.check_output(answer).text
+        ```
+
+        Guard tools with `@guard.tool`, or add one line for the
+        [OpenAI Agents SDK, LangChain or MCP](/sdk/integrations).
+      </Step>
+
+      <Step title="See what happened">
+        ```bash
+        avaliar logs       # every decision
+        avaliar verify     # check the evidence hash chains
+        ```
+
+        Everything so far runs offline and sends nothing anywhere.
+      </Step>
+
+      <Step title="Connect the dashboard (optional)">
+        1. Open **Settings, API Keys** in the [dashboard](https://app.avaliar.ai/settings/api-keys).
         2. Click **Create Key** and select the **`sdk`** scope.
-        3. Copy the generated key.
-
-        <Warning>
-          Store your API key securely. Treat it like a password and never commit
-          it to source control.
-        </Warning>
-      </Step>
-
-      <Step title="Set the environment variable">
-        Export your key so the SDK authenticates automatically.
+        3. Set it where your app runs:
 
         <CodeGroup>
           ```bash macOS / Linux
@@ -171,80 +204,15 @@ under **Settings → API Keys** — the only difference is the scope you pick.
           ```
         </CodeGroup>
 
-        <Tip>
-          Add this to your shell profile (`.bashrc`, `.zshrc`, …) so it persists
-          across sessions.
-        </Tip>
-      </Step>
+        With no code change, every decision is also uploaded and each request's
+        checks appear as one trace at
+        [app.avaliar.ai/traces](https://app.avaliar.ai/traces). See
+        [Connecting to Avaliar Cloud](/sdk/cloud).
 
-      <Step title="Add tracing">
-        Wrap any LLM call with the `@traceable` decorator. The SDK captures the
-        input, output, model, provider, latency, and token usage automatically.
-
-        ```python
-        from avaliar import traceable
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI()
-
-        @traceable("llm", model="gpt-4o", provider="openai")
-        async def generate(prompt: str) -> str:
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return response.choices[0].message.content
-        ```
-
-        Every call to `generate()` now creates a trace in Avaliar.
-      </Step>
-
-      <Step title="Enable detection">
-        Turn on safety detection by adding `detection=True` and listing the
-        detectors you want to run.
-
-        ```python
-        from avaliar import traceable
-        from avaliar.detectors import DetectorType
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI()
-
-        @traceable(
-            "llm",
-            model="gpt-4o",
-            provider="openai",
-            detection=True,
-            detectors=[
-                DetectorType.PROMPT_INJECTION,
-                DetectorType.TOXICITY,
-                DetectorType.PII_LEAK,
-                DetectorType.BIAS,
-                DetectorType.HALLUCINATION,
-            ],
-        )
-        async def generate(prompt: str) -> str:
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return response.choices[0].message.content
-        ```
-
-        <Info>
-          Each detector runs independently — enable as many or as few as you
-          need. See the [Detection overview](/detection/overview) for details.
-        </Info>
-      </Step>
-
-      <Step title="View in the dashboard">
-        Open [app.avaliar.ai/traces](https://app.avaliar.ai/traces) to see your
-        traces, detected issues, and latency metrics in real time.
-
-        <Note>
-          Traces typically appear within a few seconds of the LLM call
-          completing.
-        </Note>
+        <Warning>
+          Store your API key securely. Treat it like a password and never commit
+          it to source control.
+        </Warning>
       </Step>
     </Steps>
   </Tab>
@@ -254,12 +222,12 @@ under **Settings → API Keys** — the only difference is the scope you pick.
 
 <CardGroup cols={3}>
   <Card title="Proxy Integration" icon="server" href="/proxy/overview">
-    Full proxy reference — supported models, confidential mode, and the request pipeline.
+    Full proxy reference: supported models, confidential mode, and the request pipeline.
   </Card>
-  <Card title="@traceable Decorator" icon="at" href="/sdk/traceable">
-    All decorator options: span types, custom metadata, and nested traces.
+  <Card title="SDK quickstart" icon="python" href="/sdk/quickstart">
+    The full first run: policy, checks, tools, the deep check and red-teaming.
   </Card>
   <Card title="Detection" icon="shield-halved" href="/detection/overview">
-    Configure detectors, choose local vs cloud mode, and set severity thresholds.
+    The detectors, where they run, and severity levels.
   </Card>
 </CardGroup>

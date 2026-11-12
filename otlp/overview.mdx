@@ -142,14 +142,14 @@ The endpoint always answers `200` with a summary, so a malformed batch never mak
 
 Read it as a diagnostic:
 
-- **`unknown_events`** — the name resolved but no rule matched it. You need a profile, or the event should be mapped to `ignore`.
-- **`missing_trace_id`** — no correlation id on the record. Nothing can be built from these.
-- **`ignored_events`** — recognised and deliberately not stored. Healthy.
-- **`spans_written: 0` with `traces: 1`** — the trace exists but has no children yet, usually a prompt that arrived before its model call.
+- **`unknown_events`**: the name resolved but no rule matched it. You need a profile, or the event should be mapped to `ignore`.
+- **`missing_trace_id`**: no correlation id on the record. Nothing can be built from these.
+- **`ignored_events`**: recognised and deliberately not stored. Healthy.
+- **`spans_written: 0` with `traces: 1`**: the trace exists but has no children yet, usually a prompt that arrived before its model call.
 
 ## Detection
 
-OTLP traces are scanned exactly like SDK traces, but the choice is carried on the **API key** rather than per call, because an OpenTelemetry client has no way to pass it.
+Whether OTLP traces are scanned on Avaliar's backend is carried on the **API key** rather than per call, because an OpenTelemetry client has no way to pass it.
 
 A key set to cloud detection has its prompts scanned for injection on arrival and its responses scanned once the turn completes. A key without it stores traces unscanned, and the platform shows them as **not scanned** rather than as clean.
 

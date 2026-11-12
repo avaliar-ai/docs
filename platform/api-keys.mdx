@@ -16,7 +16,7 @@ Every API key has one or more scopes that determine how it can be used.
 
 | Scope | Description |
 |-------|-------------|
-| **sdk** | Send traces from the [Python SDK](/sdk/installation). Required for `@traceable` and detection calls. |
+| **sdk** | Upload guard evidence from the [Python SDK](/sdk/installation) (`AVALIAR_API_KEY`), and use the Avaliar deep check on Pro. See [Connecting to Avaliar Cloud](/sdk/cloud). |
 | **proxy** | Route LLM traffic through the [Avaliar Proxy](/proxy/overview) gateway. Requires an active **Pro plan**. |
 
 A key can have both scopes if you use a single key for both SDK and Proxy integrations.
@@ -132,8 +132,8 @@ For additional security, you can restrict an API key to specific IP addresses. W
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="SDK Installation" icon="download" href="/sdk/installation">
-    Use your API key to configure the Python SDK.
+  <Card title="Connect the SDK" icon="cloud" href="/sdk/cloud">
+    Use your API key to link the Python SDK to the dashboard.
   </Card>
   <Card title="Proxy Setup" icon="server" href="/proxy/setup">
     Use your API key to configure the Avaliar Proxy gateway.

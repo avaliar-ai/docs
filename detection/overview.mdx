@@ -6,56 +6,39 @@ icon: "radar"
 
 ## What is Detection?
 
-Avaliar's detection system automatically analyzes LLM inputs and outputs to identify safety issues. Every trace — whether captured via the SDK or the Proxy — can be scanned by a suite of detectors that flag problems like prompt injection, toxicity, PII leakage, bias, jailbreak attempts, and hallucinations.
+Avaliar's detection system analyzes LLM inputs and outputs to identify safety issues such as prompt injection, toxicity, PII leakage, bias, jailbreak attempts, and hallucinations.
 
-Detection is the core of Avaliar's safety layer. It turns raw traces into actionable findings with severity classifications and, when configured, triggers real-time alerts.
+Detection is the core of Avaliar's safety layer. It turns raw traffic into actionable findings with severity classifications and, when configured, triggers real-time alerts.
 
-## Three ways to use detection
+## Where detection runs
 
-### 1. SDK — integrated with tracing
+### 1. In your app, with the Python SDK
 
-Add detection directly to any `@traceable` LLM span. Results are automatically attached to your traces.
-
-```python
-from avaliar import traceable
-from avaliar.detectors import DetectorType
-
-@traceable(
-    "llm",
-    model="gpt-4o",
-    provider="openai",
-    detection=True,
-    detectors=[DetectorType.PROMPT_INJECTION, DetectorType.TOXICITY],
-    detection_mode="cloud",
-)
-async def generate(messages: list) -> str:
-    ...
-```
-
-### 2. SDK — standalone
-
-Run detectors independently for custom validation workflows:
+The open-source [Python SDK](/sdk/installation) is a runtime guard that runs inside your process. It checks the user's message, the model's reply, tool calls, tool results and actions before they take effect, decides by a policy file you own, and records every decision locally:
 
 ```python
-from avaliar.detectors import Detector, DetectorType
+from avaliar import Guard
 
-detector = Detector([DetectorType.PROMPT_INJECTION, DetectorType.PII_LEAK])
+guard = Guard()                       # reads ./avaliar.yaml
 
-result = await detector.evaluate_full(
-    prompt="User input here",
-    response="LLM response here",
-)
-
-if result.has_issues:
-    for issue in result.issues:
-        print(f"{issue.type}: {issue.message} (severity: {issue.severity})")
+d = guard.check_input(user_message)
+if d.blocked:
+    return d.reply
+answer = call_your_model(d.text)      # d.text carries any redactions
+answer = guard.check_output(answer).text
 ```
 
-### 3. Proxy Detection
+It uses rules, local models and an optional deep check, and works offline with no account. With `AVALIAR_API_KEY` set, its decisions also appear on the dashboard. See [Detectors and categories](/sdk/detection) for the SDK's sixteen categories.
+
+### 2. On Avaliar's backend, with the Proxy
 
 When you route LLM calls through the [Avaliar Proxy](/proxy/overview), detection is automatic. Prompt injection detection runs synchronously (blocking harmful inputs), while all other detectors run asynchronously on Avaliar's backend.
 
-No code changes are needed — the proxy handles everything.
+No code changes are needed: the proxy handles everything.
+
+### 3. On Avaliar's backend, with OpenTelemetry
+
+Traces sent over [OpenTelemetry](/otlp/overview) are scanned on Avaliar's backend when their API key has cloud detection enabled.
 
 ## Detection Pipeline
 
@@ -63,7 +46,7 @@ Every trace follows the same pipeline:
 
 ```
 Input (prompt + response)
-  → Detectors (6 types)
+  → Detectors
     → Issues identified
       → Severity classification (LOW → CRITICAL)
         → Alerts triggered (if configured)
@@ -73,12 +56,12 @@ Input (prompt + response)
 
 Avaliar includes six built-in detector types:
 
-1. **Prompt Injection** — Detects attempts to manipulate the LLM through crafted inputs
-2. **Jailbreak** — Identifies attempts to bypass LLM safety constraints
-3. **Toxicity** — Flags offensive, harmful, or inappropriate content
-4. **PII Detection** — Finds personally identifiable information in inputs or outputs
-5. **Bias** — Identifies biased or discriminatory content
-6. **Hallucination** — Detects factually incorrect or fabricated information
+1. **Prompt Injection**: detects attempts to manipulate the LLM through crafted inputs
+2. **Jailbreak**: identifies attempts to bypass LLM safety constraints
+3. **Toxicity**: flags offensive, harmful, or inappropriate content
+4. **PII Detection**: finds personally identifiable information in inputs or outputs
+5. **Bias**: identifies biased or discriminatory content
+6. **Hallucination**: detects factually incorrect or fabricated information
 
 See [Detector Types](/detection/detectors) for detailed descriptions and examples of each.
 
@@ -99,7 +82,7 @@ Every detected issue is assigned a severity level:
   <Card title="Detector Types" icon="magnifying-glass" href="/detection/detectors">
     Learn about each of the 6 detector types with examples and severity guidance.
   </Card>
-  <Card title="Detection Modes" icon="toggle-on" href="/detection/modes">
-    Choose between local and cloud detection for SDK-based integration.
+  <Card title="Where detection runs" icon="toggle-on" href="/detection/modes">
+    In your app with the SDK, or on Avaliar's backend.
   </Card>
 </CardGroup>

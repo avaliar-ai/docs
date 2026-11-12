@@ -1,6 +1,6 @@
 ---
 title: "Core Concepts"
-description: "The key building blocks of Avaliar — read this before diving into the detailed guides"
+description: "The key building blocks of Avaliar. Read this before diving into the detailed guides"
 icon: "lightbulb"
 ---
 
@@ -8,7 +8,7 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
 
 <AccordionGroup>
   <Accordion title="Traces" icon="route">
-    A **trace** represents a single LLM interaction from input to output. Traces are the fundamental unit of observability in Avaliar. Every function decorated with `@traceable` (or every request routed through the Proxy) creates a trace that captures the full request-response lifecycle — including the prompt, completion, model, provider, latency, token counts, and any detected issues.
+    A **trace** represents a single LLM interaction from input to output. Traces are the fundamental unit of observability in Avaliar. Every request routed through the Proxy or sent over OpenTelemetry creates a trace that captures the full request-response lifecycle, including the prompt, completion, model, provider, latency, token counts, and any detected issues. With the Python SDK linked to Avaliar Cloud, the guard checks of one request (input, tool calls, tool results, output) share a trace id and appear as one guard trace.
 
     Traces are stored in your organization's workspace and visible in the [Traces dashboard](https://app.avaliar.ai/traces). You can filter, search, and inspect them to understand how your LLM application behaves in production.
 
@@ -27,9 +27,9 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
     | `agent` | An autonomous agent step that may contain child spans |
     | `generic` | Any other operation you want to track |
 
-    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences. Parent-child relationships are tracked automatically — no manual wiring needed.
+    Nesting spans lets you trace multi-step workflows such as RAG pipelines, agent loops, or chain-of-thought sequences. Parent-child relationships are tracked automatically, with no manual wiring.
 
-    → [Traceable Decorator](/sdk/traceable)
+    → [OpenTelemetry ingestion](/otlp/overview) · [SDK OpenTelemetry spans](/sdk/opentelemetry)
   </Accordion>
 
   <Accordion title="Detection" icon="shield-halved">
@@ -37,63 +37,54 @@ Avaliar is built around a small set of core primitives. This page gives you a qu
 
     | Detector | What It Finds |
     |----------|---------------|
-    | **Prompt Injection** | Attempts to override system instructions via user input — also covers jailbreak and SQL-injection patterns in a single pass (runs synchronously as a pre-LLM blocking gate) |
+    | **Prompt Injection** | Attempts to override system instructions via user input. Also covers jailbreak and SQL-injection patterns in a single pass (runs synchronously as a pre-LLM blocking gate) |
     | **Toxicity** | Harmful, abusive, or offensive language in inputs or outputs |
-    | **PII** | Personally identifiable information — emails, phone numbers, SSNs, etc. |
+    | **PII** | Personally identifiable information: emails, phone numbers, SSNs, etc. |
     | **Bias** | Stereotyping, demographic bias, or unfair treatment in model outputs |
     | **Hallucination** | Factually incorrect or fabricated information in model responses |
-    | **Misinformation** | Verifiably false claims — conspiracy content, fabricated advice |
-    | **Misuse** | Attempts to weaponize the model — phishing, malware, fraud |
+    | **Misinformation** | Verifiably false claims: conspiracy content, fabricated advice |
+    | **Misuse** | Attempts to weaponize the model: phishing, malware, fraud |
     | **Graphic Content** | Explicit violence or sexual content that breaches content-safety standards |
     | **Illegal Activities** | Requests for dangerous or unlawful instructional content |
     | **Personal Safety** | Self-harm encouragement, dangerous advice, radicalization |
 
-    Detection runs in one of two modes — **local** (data stays on your infrastructure) or **cloud** (higher throughput, zero ops overhead).
+    Detection runs in one of two places: **in your process**, with the open-source Python SDK guard (nothing leaves your infrastructure unless you choose), or **on Avaliar's backend**, for Proxy and OpenTelemetry traffic.
 
-    → [Detection Overview](/detection/overview) · [Detector Reference](/detection/detectors) · [Detection Modes](/detection/modes)
+    → [Detection Overview](/detection/overview) · [Detector Reference](/detection/detectors) · [Where detection runs](/detection/modes) · [SDK categories](/sdk/detection)
   </Accordion>
 
   <Accordion title="Issues" icon="circle-exclamation">
     An **issue** is a finding produced by a detector during trace analysis. Each issue contains:
 
-    - **Type** — the detector that found it (e.g., `toxicity`, `pii`)
-    - **Severity** — one of `low`, `medium`, `high`, or `critical`
-    - **Confidence** — a score from 0 to 1 indicating certainty
-    - **Description** — a human-readable explanation of the finding
-    - **Excerpt** — the specific portion of the input or output that triggered detection
+    - **Type**: the detector that found it (e.g., `toxicity`, `pii`)
+    - **Severity**: one of `low`, `medium`, `high`, or `critical`
+    - **Confidence**: a score from 0 to 1 indicating certainty
+    - **Description**: a human-readable explanation of the finding
+    - **Excerpt**: the specific portion of the input or output that triggered detection
 
     Issues are attached to their parent trace and visible in both the trace detail view and the aggregated Issues section of the dashboard.
   </Accordion>
 
-  <Accordion title="Benchmarks & Evals" icon="chart-bar">
-    **Benchmarks** are standardized tests that measure an LLM's general capabilities across well-known academic datasets:
+  <Accordion title="Guard, policy and evidence" icon="shield-check">
+    The open-source **Python SDK** is a runtime guard inside your app. At five **checkpoints** (input, output, tool call, tool result, action) it checks the text or call, **decides** by a policy file your team owns (`avaliar.yaml`), and **records** every decision in a hash-chained local evidence log you can verify with `avaliar verify`.
 
-    | Benchmark | Measures |
-    |-----------|----------|
-    | **MMLU** | Broad multi-task knowledge across 57 subjects |
-    | **DROP** | Discrete reasoning over paragraphs |
-    | **HellaSwag** | Commonsense NLI and sentence completion |
-    | **TruthfulQA** | Tendency to generate truthful vs. imitative-falsehood answers |
-    | **BigBenchHard** | Multi-step reasoning tasks |
-    | **HumanEval** | Functional code generation correctness |
+    | Action | Effect |
+    |--------|--------|
+    | `allow` / `warn` | The check passes; findings are recorded |
+    | `redact` | Personal data and secrets are replaced with placeholders such as `[EMAIL_1]` |
+    | `block` | The policy's reply is returned instead |
+    | `approve` | A person must approve the tool call or action first |
 
-    **Evals** are safety-focused evaluations that measure bias and harm rather than general capability:
+    It runs offline with no account. Setting `AVALIAR_API_KEY` uploads the evidence so guard traces appear on the dashboard.
 
-    | Eval | Focus |
-    |------|-------|
-    | **BBQ** | Social bias across 11 demographic categories |
-    | **BOLD** | Bias and toxicity in open-ended text generation |
-    | **HExPHI** | Whether models follow harmful instructions |
-    | **RealToxicityPrompts** | Likelihood of generating toxic continuations |
-
-    → [Benchmarks Overview](/benchmarks/overview) · [Available Benchmarks](/benchmarks/available) · [Evals Overview](/evals/overview)
+    → [SDK installation](/sdk/installation) · [Guard and decisions](/sdk/guard) · [Policy file](/sdk/policy) · [Evidence and verify](/sdk/evidence)
   </Accordion>
 
   <Accordion title="Alerts" icon="bell">
     **Alerts** are automated notifications triggered when issues meet conditions you define. Each alert rule specifies:
 
-    - **Condition type** — `threshold` (count exceeds N), `trend` (rate increasing), `pattern` (repeated issue type), or `anomaly` (statistical outlier)
-    - **Channels** — where to send the notification: email, Slack, or webhook
+    - **Condition type**: `threshold` (count exceeds N), `trend` (rate increasing), `pattern` (repeated issue type), or `anomaly` (statistical outlier)
+    - **Channels**: where to send the notification: email, Slack, or webhook
 
     You can scope alerts to specific detectors, severity levels, models, or environments. Full alert history is stored and available for auditing.
 

@@ -6,24 +6,27 @@ icon: "sitemap"
 
 ## Overview
 
-Avaliar captures, stores, and analyzes LLM traces through two integration paths. Both paths converge on the same detection pipeline so that every trace — regardless of how it was submitted — is analyzed consistently and appears in the same dashboard.
+Avaliar has two integration paths. With the Python SDK, checks run inside your app and the decisions are uploaded as evidence; with the Proxy, requests pass through Avaliar and are checked on its backend. Both appear in the same dashboard.
 
 ## Data Flow
 
 <Tabs>
   <Tab title="SDK Path">
     <Steps>
-      <Step title="Your App Calls a @traceable Function">
-        A function decorated with `@traceable` executes in your application. The SDK automatically captures inputs, outputs, timing, token counts, and any metadata you pass in.
+      <Step title="Your App Calls the Guard">
+        At each checkpoint (the user's message, a tool call, a tool result, the model's reply, an action) your app calls the SDK's `Guard`, directly or through a framework integration.
       </Step>
-      <Step title="Trace Submitted to Avaliar">
-        The SDK submits the trace to Avaliar asynchronously in the background. Tracing never adds latency to your application — if Avaliar is unreachable, your app continues running normally.
+      <Step title="Checks Run in Your Process">
+        Rules, local models and, for uncertain cases, an optional deep check score the text. Your policy file (`avaliar.yaml`) decides whether to allow, warn, redact, block or ask for approval, before anything reaches your model or a tool runs.
       </Step>
-      <Step title="Detection Runs">
-        If cloud detection is enabled, Avaliar analyzes the trace for safety issues — prompt injection, jailbreaks, toxicity, PII, bias, and hallucination. Detection runs asynchronously after the trace is stored.
+      <Step title="Decision Recorded Locally">
+        Every decision is appended to a hash-chained evidence log on disk, off the request path. This works offline with no account.
+      </Step>
+      <Step title="Evidence Uploaded (optional)">
+        With `AVALIAR_API_KEY` set, a background thread uploads the evidence records. Avaliar re-checks every hash and chain link. If Avaliar is unreachable, records stay on disk and upload later; your app is never blocked.
       </Step>
       <Step title="Results Appear in the Dashboard">
-        The trace, along with any detected issues, becomes available in the Trace Explorer. Detection results typically appear within a few seconds.
+        The checks of one request share a trace id and appear as one guard trace in the Trace Explorer.
       </Step>
     </Steps>
   </Tab>
@@ -42,7 +45,7 @@ Avaliar captures, stores, and analyzes LLM traces through two integration paths.
         If the prompt is clean, the proxy forwards the request to the target provider and captures the full response including latency and token counts.
       </Step>
       <Step title="Detection Runs on the Response">
-        The response is analyzed asynchronously for all remaining detectors — toxicity, PII, bias, hallucination, and more.
+        The response is analyzed asynchronously for all remaining detectors: toxicity, PII, bias, hallucination, and more.
       </Step>
       <Step title="Results Appear in the Dashboard">
         The full trace and any detected issues appear in the Trace Explorer, typically within a few seconds of the request completing.
@@ -53,11 +56,11 @@ Avaliar captures, stores, and analyzes LLM traces through two integration paths.
 
 ## Async Detection
 
-Detection runs asynchronously after a trace is stored. This means:
+On Avaliar's backend (Proxy and OpenTelemetry traffic), detection runs asynchronously after a trace is stored. The Python SDK is different: it checks synchronously in your process, within a time budget per checkpoint, because its decisions must be made before the model or tool is called. For backend detection this means:
 
 - **Your application is never blocked** waiting for detection to complete
 - **Traces appear immediately** in the Trace Explorer, with detection results added shortly after
-- **Prompt inspection via the Proxy is the one exception** — it runs synchronously before forwarding, because blocking a malicious prompt requires an answer before the LLM call proceeds
+- **Prompt inspection via the Proxy is the one exception**: it runs synchronously before forwarding, because blocking a malicious prompt requires an answer before the LLM call proceeds
 
 <Info>
   Detection results typically appear within a few seconds. On the Trace Explorer, a trace that has not yet been analyzed will show a "Pending" status until detection completes.
@@ -70,9 +73,9 @@ Avaliar uses two authentication mechanisms depending on how you're accessing the
 | Method | Use Case | How to use it |
 |--------|----------|---------------|
 | **Session** | Dashboard, analytics, settings, team management | Log in at [app.avaliar.ai](https://app.avaliar.ai) |
-| **API Key** | SDK and Proxy integrations | Set `AVALIAR_API_KEY` or pass in the `X-API-Key` header |
+| **API Key** | SDK cloud link and Proxy integrations | Set `AVALIAR_API_KEY` or pass in the `X-API-Key` header |
 
-API keys are scoped — a key created for the SDK cannot be used for the Proxy, and vice versa. You can create and manage keys from [app.avaliar.ai/api-keys](https://app.avaliar.ai/api-keys).
+API keys are scoped: a key created for the SDK cannot be used for the Proxy, and vice versa. You can create and manage keys from [app.avaliar.ai/api-keys](https://app.avaliar.ai/api-keys).
 
 ## Next Steps
 
