@@ -2323,7 +2323,7 @@ with HTTP `402`. Add credits or set your own key to resume.
 
 `stream: true` is supported and returns a standard `text/event-stream`. The
 upstream call is non-streaming, so the full message arrives as a single content
-delta followed by `[DONE]`, so clients that expect SSE (most chat UIs) work
+delta followed by `[DONE]`; clients that expect SSE (most chat UIs) work
 without changes.
 
 ## Errors
