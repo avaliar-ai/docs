@@ -2223,7 +2223,7 @@ For each request, the proxy:
 Source: https://docs.avaliar.ai/proxy/openai-compatible  |  Section: Proxy Integration
 
 The proxy exposes a drop-in **OpenAI Chat Completions** endpoint. Point any
-OpenAI-compatible SDK or no-code tool at it by changing the base URL — no
+OpenAI-compatible SDK or no-code tool at it by changing the base URL: no
 provider keys in your code, no special request shape, and you get back a
 standard `chat.completion` response. Every call is traced and run through
 [detection](https://docs.avaliar.ai/detection/overview) automatically.
@@ -2286,7 +2286,7 @@ curl https://proxy-api-ckjd.onrender.com/v1/chat/completions \
 
 ## Models
 
-The endpoint routes through OpenRouter, so **any OpenRouter model works** — use
+The endpoint routes through OpenRouter, so **any OpenRouter model works**: use
 the full `vendor/model` slug (not a bare name):
 
 - `openai/gpt-4o`, `openai/gpt-4o-mini`
@@ -2298,16 +2298,16 @@ Browse and copy exact ids at [openrouter.ai/models](https://openrouter.ai/models
 
 > **Warning:** Use the slug form. A bare name like `gpt-4o` is rejected with a `400` telling
 > you to use `openai/gpt-4o`. Some clients (e.g. LiteLLM) strip the vendor
-> prefix when routing — prefer a node that sends the model verbatim, such as
+> prefix when routing: prefer a node that sends the model verbatim, such as
 > Flowise's **ChatOpenAI Custom**.
 
 ## Credits and BYO key
 
 Proxy calls run on OpenRouter through Avaliar. To use them, an org needs one of:
 
-- **Prepaid credits** — every org starts at **$0**. A workspace admin tops up
+- **Prepaid credits**: every org starts at **$0**. A workspace admin tops up
   the balance from the dashboard. Each call deducts its exact OpenRouter cost.
-- **Your own OpenRouter key** — add it under **Settings → Organization →
+- **Your own OpenRouter key**: add it under **Settings → Organization →
   OpenRouter API Key**. When set, calls bill your OpenRouter account directly
   and **credits are not consumed**.
 
@@ -2323,7 +2323,7 @@ with HTTP `402`. Add credits or set your own key to resume.
 
 `stream: true` is supported and returns a standard `text/event-stream`. The
 upstream call is non-streaming, so the full message arrives as a single content
-delta followed by `[DONE]` — clients that expect SSE (most chat UIs) work
+delta followed by `[DONE]`, so clients that expect SSE (most chat UIs) work
 without changes.
 
 ## Errors
@@ -2332,20 +2332,20 @@ without changes.
 | ------ | ------- |
 | `401` | Missing/invalid Avaliar key, or it lacks the `proxy` scope. Send it as `Authorization: Bearer`. |
 | `402` | Out of credits and no BYO OpenRouter key set. |
-| `400` | Bad request — missing `model`/`messages`, or a bare model name (use the `vendor/model` slug). |
+| `400` | Bad request: missing `model`/`messages`, or a bare model name (use the `vendor/model` slug). |
 | `5xx` | Upstream provider/proxy error. |
 
 ## Using it in a no-code tool
 
 Most tools have an "OpenAI / OpenAI-compatible" model node:
 
-1. Choose the **ChatOpenAI Custom** (or "OpenAI-compatible") node — not a
+1. Choose the **ChatOpenAI Custom** (or "OpenAI-compatible") node, not a
    provider-locked one, and not LiteLLM (it rewrites the model by prefix).
 2. **Base URL / Base Path:** `https://proxy-api-ckjd.onrender.com/v1`
 3. **API key:** your Avaliar proxy key.
 4. **Model:** an OpenRouter slug, e.g. `openai/gpt-4o`.
 
-> **Note:** The Avaliar key goes in the API-key field (it's sent as a Bearer header) —
+> **Note:** The Avaliar key goes in the API-key field (it's sent as a Bearer header);
 > you do **not** pass any provider key. If a tool only sends the key as a header
 > (which this endpoint expects), you're set.
 
@@ -2364,7 +2364,7 @@ Source: https://docs.avaliar.ai/proxy/setup  |  Section: Proxy Integration
 
 Get your AI agent routed through the Avaliar Proxy in three steps. The only changes required are your endpoint URL and adding your Avaliar API key to the request body.
 
-> **Tip:** Most integrations should use the **[OpenAI-Compatible Endpoint](https://docs.avaliar.ai/proxy/openai-compatible)** instead — it works with any OpenAI SDK or no-code tool by just setting a base URL and Bearer key. The per-provider endpoints on this page are a lower-level alternative (body-based keys, one path per provider).
+> **Tip:** Most integrations should use the **[OpenAI-Compatible Endpoint](https://docs.avaliar.ai/proxy/openai-compatible)** instead: it works with any OpenAI SDK or no-code tool by just setting a base URL and Bearer key. The per-provider endpoints on this page are a lower-level alternative (body-based keys, one path per provider).
 
 ## Step 1: Get a Proxy API Key
 
@@ -2373,7 +2373,7 @@ Generate an API key from the [Avaliar Dashboard](https://app.avaliar.ai/settings
 1. Navigate to **Settings → API Keys**
 2. Click **Create API Key**
 3. Select the **Proxy** scope
-4. Copy the generated key — you won't be able to see it again
+4. Copy the generated key: you won't be able to see it again
 
 > **Warning:** Never expose your Avaliar API key in client-side or browser-based code. Use it only in server-side applications or backend AI agent services.
 
@@ -2397,7 +2397,7 @@ import requests
 response = requests.post(
     "https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion",
     json={
-        "api_key": "your-avaliar-api-key",        # Avaliar key — new
+        "api_key": "your-avaliar-api-key",        # Avaliar key (new)
         "openai_api_key": "your-openai-key",       # Your existing OpenAI key
         "model": "gpt-4o",
         "messages": [
@@ -2413,7 +2413,7 @@ import requests
 response = requests.post(
     "https://proxy-api-ckjd.onrender.com/api/anthropic_service/chat_completion",
     json={
-        "api_key": "your-avaliar-api-key",         # Avaliar key — new
+        "api_key": "your-avaliar-api-key",         # Avaliar key (new)
         "anthropic_api_key": "your-anthropic-key", # Your existing Anthropic key
         "model": "claude-sonnet-4-5",
         "messages": [
@@ -2430,7 +2430,7 @@ import requests
 response = requests.post(
     "https://proxy-api-ckjd.onrender.com/api/gemini_service/chat_completion",
     json={
-        "api_key": "your-avaliar-api-key",       # Avaliar key — new
+        "api_key": "your-avaliar-api-key",       # Avaliar key (new)
         "gemini_api_key": "your-gemini-key",      # Your existing Gemini key
         "model": "gemini-2.5-flash",
         "messages": [
@@ -2545,7 +2545,7 @@ Common error codes:
 | `401` | Invalid, expired, or revoked Avaliar API key |
 | `400` | Missing required parameters or invalid request body |
 | `422` | Request body failed schema validation |
-| `403` | Request blocked — prompt injection detected |
+| `403` | Request blocked: prompt injection detected |
 | `500` | Internal error or LLM provider failure |
 
 If a request is blocked due to prompt injection, the response will indicate the block reason. The blocked request is still recorded as a trace on the Avaliar platform.
@@ -2582,7 +2582,7 @@ The proxy runs prompt injection detection on the incoming messages _before_ forw
 - The request is **never forwarded** to the LLM provider
 - The blocked attempt is recorded as a trace on Avaliar
 
-> **Info:** Prompt injection detection in Stage 1 is **synchronous** — harmful prompts are stopped before they ever reach your LLM provider.
+> **Info:** Prompt injection detection in Stage 1 is **synchronous**: harmful prompts are stopped before they ever reach your LLM provider.
 
 ### Step 2: Stage 2: Forward & Capture
 
@@ -2594,7 +2594,7 @@ Once the LLM responds, the proxy captures:
 - Token counts (prompt tokens, completion tokens, total)
 - Estimated cost based on model pricing
 
-The response is then returned to your application. From your agent's perspective, this is a normal API response — the proxy is transparent.
+The response is then returned to your application. From your agent's perspective, this is a normal API response: the proxy is transparent.
 
 > **Note:** If `is_confidential: true` is set on the request, the prompt and response content are not stored. Token counts and latency are still tracked.
 
@@ -2613,7 +2613,7 @@ Once detection completes:
 - Results are visible in the [Avaliar Dashboard](https://app.avaliar.ai/traces) under the trace
 - Any configured [alerts](https://docs.avaliar.ai/platform/alerts) are triggered based on detection results and severity
 
-> **Info:** All detection beyond prompt injection runs **asynchronously**. Your application receives the LLM response at full speed — detection results appear in the dashboard shortly after.
+> **Info:** All detection beyond prompt injection runs **asynchronously**. Your application receives the LLM response at full speed: detection results appear in the dashboard shortly after.
 
 ---
 
@@ -2659,11 +2659,11 @@ The Avaliar Proxy supports the following models across OpenAI, Anthropic, and Go
 
 | Model ID | Description |
 | -------- | ----------- |
-| `gpt-4o` | GPT-4o — flagship multimodal model |
-| `gpt-4o-mini` | GPT-4o Mini — fast and cost-efficient |
+| `gpt-4o` | GPT-4o: flagship multimodal model |
+| `gpt-4o-mini` | GPT-4o Mini: fast and cost-efficient |
 | `gpt-4.1` | GPT-4.1 |
 | `gpt-4.1-mini` | GPT-4.1 Mini |
-| `gpt-4.1-nano` | GPT-4.1 Nano — lightest GPT-4.1 variant |
+| `gpt-4.1-nano` | GPT-4.1 Nano: lightest GPT-4.1 variant |
 | `gpt-5` | GPT-5 |
 | `gpt-5-mini` | GPT-5 Mini |
 | `gpt-5-nano` | GPT-5 Nano |
@@ -2675,11 +2675,11 @@ The Avaliar Proxy supports the following models across OpenAI, Anthropic, and Go
 
 | Model ID | Description |
 | -------- | ----------- |
-| `claude-opus-4-6` | Claude Opus 4.6 — most capable |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6 — balanced performance |
+| `claude-opus-4-6` | Claude Opus 4.6: most capable |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6: balanced performance |
 | `claude-opus-4-5` | Claude Opus 4.5 |
 | `claude-sonnet-4-5` | Claude Sonnet 4.5 |
-| `claude-haiku-4-5` | Claude Haiku 4.5 — fastest, most compact |
+| `claude-haiku-4-5` | Claude Haiku 4.5: fastest, most compact |
 | `claude-opus-4-1` | Claude Opus 4.1 |
 
 ---
@@ -2688,9 +2688,9 @@ The Avaliar Proxy supports the following models across OpenAI, Anthropic, and Go
 
 | Model ID | Description |
 | -------- | ----------- |
-| `gemini-2.5-pro` | Gemini 2.5 Pro — most capable Gemini model |
-| `gemini-2.5-flash` | Gemini 2.5 Flash — fast and efficient |
-| `gemini-2.5-lite` | Gemini 2.5 Lite — lightest 2.5 variant |
+| `gemini-2.5-pro` | Gemini 2.5 Pro: most capable Gemini model |
+| `gemini-2.5-flash` | Gemini 2.5 Flash: fast and efficient |
+| `gemini-2.5-lite` | Gemini 2.5 Lite: lightest 2.5 variant |
 | `gemini-2.0-pro-exp` | Gemini 2.0 Pro (Experimental) |
 | `gemini-1.5-pro` | Gemini 1.5 Pro |
 | `gemini-1.5-flash` | Gemini 1.5 Flash |
@@ -2974,13 +2974,13 @@ Avaliar ships with ten built-in detectors. Each one analyzes LLM inputs, outputs
 
 The **Prompt Injection** detector runs synchronously on the prompt (and can block before the LLM is called); the rest run on the response. Which detectors run is controlled per organization under **Settings → Security → Detectors**.
 
-> **Note:** Prompt injection, jailbreak, and SQL injection are evaluated together by the single **Prompt Injection** detector — one prompt-stage check that covers all three malicious-input categories.
+> **Note:** Prompt injection, jailbreak, and SQL injection are evaluated together by the single **Prompt Injection** detector: one prompt-stage check that covers all three malicious-input categories.
 
 ## Prompt Injection
 
 ## What it detects
 
-A single prompt-stage detector that covers all malicious-input categories — **prompt injection**, **jailbreaks**, and **SQL injection**. It analyzes user-facing input for attempts to override system instructions, bypass the model's guardrails, or smuggle in database-manipulation payloads.
+A single prompt-stage detector that covers all malicious-input categories: **prompt injection**, **jailbreaks**, and **SQL injection**. It analyzes user-facing input for attempts to override system instructions, bypass the model's guardrails, or smuggle in database-manipulation payloads.
 
 ## Examples
 
@@ -3011,10 +3011,10 @@ The toxicity detector flags offensive, harmful, or inappropriate content in both
 ## Severity
 
 Severity ranges from **LOW** to **CRITICAL** depending on the content:
-- **LOW** — Mildly inappropriate language or borderline content
-- **MEDIUM** — Clearly offensive content
-- **HIGH** — Targeted harassment, explicit threats
-- **CRITICAL** — Severe hate speech, detailed threats of violence
+- **LOW**: Mildly inappropriate language or borderline content
+- **MEDIUM**: Clearly offensive content
+- **HIGH**: Targeted harassment, explicit threats
+- **CRITICAL**: Severe hate speech, detailed threats of violence
 
 ## PII Detection
 
@@ -3033,8 +3033,8 @@ The PII (Personally Identifiable Information) detector identifies sensitive pers
 
 ## Severity
 
-- **MEDIUM** — Single PII element (e.g., an email address in isolation)
-- **HIGH** — Multiple PII elements or sensitive identifiers (e.g., SSN, credit card number)
+- **MEDIUM**: Single PII element (e.g., an email address in isolation)
+- **HIGH**: Multiple PII elements or sensitive identifiers (e.g., SSN, credit card number)
 
 ## Bias
 
@@ -3044,17 +3044,17 @@ The bias detector identifies content that reflects or reinforces discriminatory 
 
 ## Categories
 
-- **Gender bias** — Stereotypes or assumptions based on gender
-- **Racial bias** — Discriminatory content related to race or ethnicity
-- **Age bias** — Ageist assumptions or stereotypes
-- **Religious bias** — Prejudice based on religious beliefs
-- **Cultural bias** — Stereotyping or dismissal of cultural groups
+- **Gender bias**: Stereotypes or assumptions based on gender
+- **Racial bias**: Discriminatory content related to race or ethnicity
+- **Age bias**: Ageist assumptions or stereotypes
+- **Religious bias**: Prejudice based on religious beliefs
+- **Cultural bias**: Stereotyping or dismissal of cultural groups
 
 ## Severity
 
-- **LOW** — Subtle or unintentional bias that may reflect training data patterns
-- **MEDIUM** — Clear stereotyping or biased assumptions
-- **HIGH** — Overtly discriminatory content or harmful generalizations
+- **LOW**: Subtle or unintentional bias that may reflect training data patterns
+- **MEDIUM**: Clear stereotyping or biased assumptions
+- **HIGH**: Overtly discriminatory content or harmful generalizations
 
 ## Hallucination
 
@@ -3072,15 +3072,15 @@ The detector uses multiple strategies:
 
 ## Severity
 
-- **MEDIUM** — Minor factual inaccuracies or unverifiable claims
-- **HIGH** — Clearly fabricated information presented as fact (e.g., fake citations)
-- **CRITICAL** — Dangerous misinformation in high-stakes domains (medical, legal, financial advice)
+- **MEDIUM**: Minor factual inaccuracies or unverifiable claims
+- **HIGH**: Clearly fabricated information presented as fact (e.g., fake citations)
+- **CRITICAL**: Dangerous misinformation in high-stakes domains (medical, legal, financial advice)
 
 ## Misinformation
 
 ## What it detects
 
-Verifiably false or misleading claims in LLM outputs — distinct from hallucination in that it targets statements that contradict established facts rather than fabricated specifics.
+Verifiably false or misleading claims in LLM outputs, distinct from hallucination in that it targets statements that contradict established facts rather than fabricated specifics.
 
 ## Examples
 
@@ -3096,7 +3096,7 @@ Verifiably false or misleading claims in LLM outputs — distinct from hallucina
 
 ## What it detects
 
-Responses that fall outside the AI's intended scope or purpose — the model being steered into tasks it shouldn't perform for your application.
+Responses that fall outside the AI's intended scope or purpose: the model being steered into tasks it shouldn't perform for your application.
 
 ## Examples
 

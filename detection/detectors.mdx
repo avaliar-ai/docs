@@ -9,14 +9,14 @@ Avaliar ships with ten built-in detectors. Each one analyzes LLM inputs, outputs
 The **Prompt Injection** detector runs synchronously on the prompt (and can block before the LLM is called); the rest run on the response. Which detectors run is controlled per organization under **Settings → Security → Detectors**.
 
 <Note>
-  Prompt injection, jailbreak, and SQL injection are evaluated together by the single **Prompt Injection** detector — one prompt-stage check that covers all three malicious-input categories.
+  Prompt injection, jailbreak, and SQL injection are evaluated together by the single **Prompt Injection** detector: one prompt-stage check that covers all three malicious-input categories.
 </Note>
 
 <AccordionGroup>
   <Accordion title="Prompt Injection" icon="syringe">
     ## What it detects
 
-    A single prompt-stage detector that covers all malicious-input categories — **prompt injection**, **jailbreaks**, and **SQL injection**. It analyzes user-facing input for attempts to override system instructions, bypass the model's guardrails, or smuggle in database-manipulation payloads.
+    A single prompt-stage detector that covers all malicious-input categories: **prompt injection**, **jailbreaks**, and **SQL injection**. It analyzes user-facing input for attempts to override system instructions, bypass the model's guardrails, or smuggle in database-manipulation payloads.
 
     ## Examples
 
@@ -47,10 +47,10 @@ The **Prompt Injection** detector runs synchronously on the prompt (and can bloc
     ## Severity
 
     Severity ranges from **LOW** to **CRITICAL** depending on the content:
-    - **LOW** — Mildly inappropriate language or borderline content
-    - **MEDIUM** — Clearly offensive content
-    - **HIGH** — Targeted harassment, explicit threats
-    - **CRITICAL** — Severe hate speech, detailed threats of violence
+    - **LOW**: Mildly inappropriate language or borderline content
+    - **MEDIUM**: Clearly offensive content
+    - **HIGH**: Targeted harassment, explicit threats
+    - **CRITICAL**: Severe hate speech, detailed threats of violence
   </Accordion>
 
   <Accordion title="PII Detection" icon="id-card">
@@ -69,8 +69,8 @@ The **Prompt Injection** detector runs synchronously on the prompt (and can bloc
 
     ## Severity
 
-    - **MEDIUM** — Single PII element (e.g., an email address in isolation)
-    - **HIGH** — Multiple PII elements or sensitive identifiers (e.g., SSN, credit card number)
+    - **MEDIUM**: Single PII element (e.g., an email address in isolation)
+    - **HIGH**: Multiple PII elements or sensitive identifiers (e.g., SSN, credit card number)
   </Accordion>
 
   <Accordion title="Bias" icon="scale-unbalanced">
@@ -80,17 +80,17 @@ The **Prompt Injection** detector runs synchronously on the prompt (and can bloc
 
     ## Categories
 
-    - **Gender bias** — Stereotypes or assumptions based on gender
-    - **Racial bias** — Discriminatory content related to race or ethnicity
-    - **Age bias** — Ageist assumptions or stereotypes
-    - **Religious bias** — Prejudice based on religious beliefs
-    - **Cultural bias** — Stereotyping or dismissal of cultural groups
+    - **Gender bias**: Stereotypes or assumptions based on gender
+    - **Racial bias**: Discriminatory content related to race or ethnicity
+    - **Age bias**: Ageist assumptions or stereotypes
+    - **Religious bias**: Prejudice based on religious beliefs
+    - **Cultural bias**: Stereotyping or dismissal of cultural groups
 
     ## Severity
 
-    - **LOW** — Subtle or unintentional bias that may reflect training data patterns
-    - **MEDIUM** — Clear stereotyping or biased assumptions
-    - **HIGH** — Overtly discriminatory content or harmful generalizations
+    - **LOW**: Subtle or unintentional bias that may reflect training data patterns
+    - **MEDIUM**: Clear stereotyping or biased assumptions
+    - **HIGH**: Overtly discriminatory content or harmful generalizations
   </Accordion>
 
   <Accordion title="Hallucination" icon="ghost">
@@ -108,15 +108,15 @@ The **Prompt Injection** detector runs synchronously on the prompt (and can bloc
 
     ## Severity
 
-    - **MEDIUM** — Minor factual inaccuracies or unverifiable claims
-    - **HIGH** — Clearly fabricated information presented as fact (e.g., fake citations)
-    - **CRITICAL** — Dangerous misinformation in high-stakes domains (medical, legal, financial advice)
+    - **MEDIUM**: Minor factual inaccuracies or unverifiable claims
+    - **HIGH**: Clearly fabricated information presented as fact (e.g., fake citations)
+    - **CRITICAL**: Dangerous misinformation in high-stakes domains (medical, legal, financial advice)
   </Accordion>
 
   <Accordion title="Misinformation" icon="circle-exclamation">
     ## What it detects
 
-    Verifiably false or misleading claims in LLM outputs — distinct from hallucination in that it targets statements that contradict established facts rather than fabricated specifics.
+    Verifiably false or misleading claims in LLM outputs, distinct from hallucination in that it targets statements that contradict established facts rather than fabricated specifics.
 
     ## Examples
 
@@ -132,7 +132,7 @@ The **Prompt Injection** detector runs synchronously on the prompt (and can bloc
   <Accordion title="Misuse" icon="ban">
     ## What it detects
 
-    Responses that fall outside the AI's intended scope or purpose — the model being steered into tasks it shouldn't perform for your application.
+    Responses that fall outside the AI's intended scope or purpose: the model being steered into tasks it shouldn't perform for your application.
 
     ## Examples
 

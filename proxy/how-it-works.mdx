@@ -29,7 +29,7 @@ Every request routed through the Avaliar Proxy goes through three stages. Stage 
     - The blocked attempt is recorded as a trace on Avaliar
 
     <Info>
-      Prompt injection detection in Stage 1 is **synchronous** — harmful prompts are stopped before they ever reach your LLM provider.
+      Prompt injection detection in Stage 1 is **synchronous**: harmful prompts are stopped before they ever reach your LLM provider.
     </Info>
   </Step>
 
@@ -42,7 +42,7 @@ Every request routed through the Avaliar Proxy goes through three stages. Stage 
     - Token counts (prompt tokens, completion tokens, total)
     - Estimated cost based on model pricing
 
-    The response is then returned to your application. From your agent's perspective, this is a normal API response — the proxy is transparent.
+    The response is then returned to your application. From your agent's perspective, this is a normal API response: the proxy is transparent.
 
     <Note>
       If `is_confidential: true` is set on the request, the prompt and response content are not stored. Token counts and latency are still tracked.
@@ -64,7 +64,7 @@ Every request routed through the Avaliar Proxy goes through three stages. Stage 
     - Any configured [alerts](/platform/alerts) are triggered based on detection results and severity
 
     <Info>
-      All detection beyond prompt injection runs **asynchronously**. Your application receives the LLM response at full speed — detection results appear in the dashboard shortly after.
+      All detection beyond prompt injection runs **asynchronously**. Your application receives the LLM response at full speed: detection results appear in the dashboard shortly after.
     </Info>
   </Step>
 </Steps>

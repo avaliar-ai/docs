@@ -7,7 +7,7 @@ icon: "gear"
 Get your AI agent routed through the Avaliar Proxy in three steps. The only changes required are your endpoint URL and adding your Avaliar API key to the request body.
 
 <Tip>
-  Most integrations should use the **[OpenAI-Compatible Endpoint](/proxy/openai-compatible)** instead — it works with any OpenAI SDK or no-code tool by just setting a base URL and Bearer key. The per-provider endpoints on this page are a lower-level alternative (body-based keys, one path per provider).
+  Most integrations should use the **[OpenAI-Compatible Endpoint](/proxy/openai-compatible)** instead: it works with any OpenAI SDK or no-code tool by just setting a base URL and Bearer key. The per-provider endpoints on this page are a lower-level alternative (body-based keys, one path per provider).
 </Tip>
 
 <Steps>
@@ -17,7 +17,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
     1. Navigate to **Settings → API Keys**
     2. Click **Create API Key**
     3. Select the **Proxy** scope
-    4. Copy the generated key — you won't be able to see it again
+    4. Copy the generated key: you won't be able to see it again
 
     <Warning>
       Never expose your Avaliar API key in client-side or browser-based code. Use it only in server-side applications or backend AI agent services.
@@ -44,7 +44,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       response = requests.post(
           "https://proxy-api-ckjd.onrender.com/api/openai_service/chat_completion",
           json={
-              "api_key": "your-avaliar-api-key",        # Avaliar key — new
+              "api_key": "your-avaliar-api-key",        # Avaliar key (new)
               "openai_api_key": "your-openai-key",       # Your existing OpenAI key
               "model": "gpt-4o",
               "messages": [
@@ -60,7 +60,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       response = requests.post(
           "https://proxy-api-ckjd.onrender.com/api/anthropic_service/chat_completion",
           json={
-              "api_key": "your-avaliar-api-key",         # Avaliar key — new
+              "api_key": "your-avaliar-api-key",         # Avaliar key (new)
               "anthropic_api_key": "your-anthropic-key", # Your existing Anthropic key
               "model": "claude-sonnet-4-5",
               "messages": [
@@ -77,7 +77,7 @@ Get your AI agent routed through the Avaliar Proxy in three steps. The only chan
       response = requests.post(
           "https://proxy-api-ckjd.onrender.com/api/gemini_service/chat_completion",
           json={
-              "api_key": "your-avaliar-api-key",       # Avaliar key — new
+              "api_key": "your-avaliar-api-key",       # Avaliar key (new)
               "gemini_api_key": "your-gemini-key",      # Your existing Gemini key
               "model": "gemini-2.5-flash",
               "messages": [
@@ -201,7 +201,7 @@ Common error codes:
 | `401` | Invalid, expired, or revoked Avaliar API key |
 | `400` | Missing required parameters or invalid request body |
 | `422` | Request body failed schema validation |
-| `403` | Request blocked — prompt injection detected |
+| `403` | Request blocked: prompt injection detected |
 | `500` | Internal error or LLM provider failure |
 
 If a request is blocked due to prompt injection, the response will indicate the block reason. The blocked request is still recorded as a trace on the Avaliar platform.
